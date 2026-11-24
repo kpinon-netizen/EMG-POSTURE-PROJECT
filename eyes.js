@@ -23,7 +23,7 @@ class OneEuro{
     this.px+=OneEuro.a(minC+beta*Math.abs(this.dx),dt)*(v-this.px); return this.px;
   }
 }
-S.fx=new OneEuro(); S.fy=new OneEuro(); S.map={ax:1,bx:0,ay:1,by:0}; S.frame=null; S.quality={score:100,tips:[]}; loadMap();
+S.cond={}; S.pending=null; S.fx=new OneEuro(); S.fy=new OneEuro(); S.map={ax:1,bx:0,ay:1,by:0}; S.frame=null; S.quality={score:100,tips:[]}; loadMap();
 const median=a=>{ const b=[...a].sort((x,y)=>x-y), n=b.length; return n%2?b[n>>1]:(b[n/2-1]+b[n/2])/2; };
 
 function msg(t,err){ const m=$('eyMsg'); m.textContent=t; m.classList.toggle('err',!!err); }
@@ -43,11 +43,14 @@ async function start(){
     webgazer.showVideoPreview($('eyPreview').checked).showPredictionPoints(false).applyKalmanFilter(false);
     try{ webgazer.showFaceOverlay(false).showFaceFeedbackBox(false); }catch{}
   }catch(e){ msg(`The camera didn't start (${e?.message||e}). Allow camera access for this page and try again.`,true); $('eyStart').disabled=false; return; }
+  if(S.pending){ const f=S.pending; S.pending=null; f(); }
+  if(S.acc==null){ const p=priors(); if(p) S.acc=p.acc; } // first region size comes from earlier calibrations
   S.fx.reset(); S.fy.reset(); S.med=[]; S.lastGaze=performance.now(); S.lost=false;
   adoptFs(); if(!S.frame) S.frame={...viewFrame(),w:innerWidth,h:innerHeight}; S.running=true; $('eyStop').disabled=false; $('eyCalib').disabled=false; $('eyTest').disabled=false;
   msg('Tracking. Calibrate now, or skip it if you calibrated before and the cursor already follows your eyes.');
 }
 function stop(){
+  if(S.running&&curProfile()) saveProfile(curProfile(),true);
   try{ webgazer.end(); }catch{}
   S.running=false; S.sm=null; S.raw=null; setHover(null); endCalib();
   $('eyStart').disabled=false; $('eyStop').disabled=true; $('eyCalib').disabled=true;
@@ -62,6 +65,85 @@ const toTrain=(x,y)=>{ const o=frameOff(); return [x-o.x,y-o.y]; };
 function loadMap(){ try{ const m=JSON.parse(localStorage.getItem(MAPKEY)||'null'); if(m){ if(m.map) S.map=m.map; if(m.bias) S.bias=m.bias; if(m.frame) S.frame=m.frame; if(m.acc!=null) S.acc=m.acc; } }catch{} }
 function saveMap(){ try{ localStorage.setItem(MAPKEY,JSON.stringify({map:S.map,bias:S.bias,frame:S.frame,acc:S.acc})); }catch{} }
 function saveMapSoon(){ clearTimeout(S.saveT); S.saveT=setTimeout(saveMap,1500); }
+/* ---------- calibration memory ----------
+   Every finished calibration is written to a log (accuracy, scale/offset fit, window size, light, face size, settings). The log is kept in the browser
+   (and in "Back up all training"), so the next person starts from what earlier calibrations learned:
+     - the first gaze region is sized from past accuracy instead of a fixed guess
+     - the affine fit is blended with the typical fit from earlier good runs on a similar window (one odd check dot matters less)
+     - if recent runs were rough on this window, calibration takes an extra pass per dot
+     - the tips show the light and face distance of the best runs
+   Each person can also keep a named profile: their own training samples + correction, restored in one click. */
+const LOGKEY='emgPosture.eyeCalLog', PROFKEY='emgPosture.eyeProfiles', CURKEY='emgPosture.eyeProfile', MAXLOG=80, MAXPROF=4, MAXSAMP=420;
+const lsGet=(k,d)=>{ try{ const v=JSON.parse(localStorage.getItem(k)||'null'); return v??d; }catch{ return d; } };
+const lsSet=k=>v=>{ try{ localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v)); return true; }catch{ return false; } };
+const getLog=()=>{ const l=lsGet(LOGKEY,[]); return Array.isArray(l)?l:[]; };
+const curProfile=()=>localStorage.getItem(CURKEY)||'';
+const winKey=()=>({w:innerWidth,h:innerHeight});
+const sameWin=r=>r&&Math.abs(r.w-innerWidth)<=innerWidth*0.15&&Math.abs(r.h-innerHeight)<=innerHeight*0.15;
+const goodRuns=()=>getLog().filter(r=>r.ok&&r.pct<10);
+function priors(){
+  const all=getLog().filter(r=>r.ok), win=all.filter(sameWin), use=win.length>=2?win:all;
+  if(use.length<2) return null;
+  const recent=use.slice(-6), good=use.filter(r=>r.pct<10);
+  return {n:use.length,acc:median(recent.map(r=>r.acc)),pct:median(recent.map(r=>r.pct)),
+    map:good.length>=3?{ax:median(good.map(r=>r.map.ax)),bx:median(good.map(r=>r.map.bx)),ay:median(good.map(r=>r.map.ay)),by:median(good.map(r=>r.map.by))}:null};
+}
+const hitsPerDot=()=>{ const p=priors(); return p&&p.pct>8?HITS_PER_DOT+1:HITS_PER_DOT; };
+function logCalibration(rec){
+  const l=getLog(); l.push({t:Date.now(),who:curProfile(),w:innerWidth,h:innerHeight,smooth:+$('eySmooth').value||4,auto:autoOn()?1:0,hits:hitsPerDot(),...S.cond,...rec});
+  while(l.length>MAXLOG) l.shift(); lsSet(LOGKEY)(l); renderHist();
+}
+function renderHist(){
+  const el=$('eyHist'); if(!el) return; const l=getLog().filter(r=>r.ok), p=priors(), best=l.filter(r=>r.pct<6);
+  if(!l.length){ el.textContent='No calibrations recorded yet. Each one you finish is saved here and makes the next calibration better.'; return; }
+  const last=l.slice(-5).reverse().map(r=>`${new Date(r.t).toLocaleDateString(undefined,{month:'short',day:'numeric'})} ${r.who||'default'}: ${r.pct.toFixed(1)}%`).join(' · ');
+  let t=`${l.length} calibration${l.length>1?'s':''} recorded. Typical error ${p?p.pct.toFixed(1):'–'}% of window width. Latest: ${last}.`;
+  if(best.length>=2&&best.every(r=>r.light!=null)) t+=` Your best runs had face brightness about ${Math.round(median(best.map(r=>r.light)))}/255 and face width about ${Math.round(100*median(best.map(r=>r.fw)))}% of the camera view.`;
+  el.textContent=t;
+}
+function logCsv(){
+  const cols=['t','who','w','h','acc','pct','ax','bx','ay','by','light','fw','fps','smooth','auto','hits','ok'];
+  const rows=getLog().map(r=>cols.map(c=>{ const v=c in r?r[c]:r.map?.[c]; return c==='t'?new Date(v).toISOString():v==null?'':String(v).replace(/[",\n]/g,' '); }).join(','));
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([cols.join(',')+'\n'+rows.join('\n')],{type:'text/csv'})); a.download='eye-calibration-log.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+const b64=u8=>{ let s=''; for(let i=0;i<u8.length;i+=8192) s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192)); return btoa(s); };
+const unb64=s=>{ const b=atob(s), u=new Uint8ClampedArray(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; };
+function packEye(e){ const o={}; for(const [k,v] of Object.entries(e)){ if(v&&typeof v==='object'&&v.patch?.data){ const q={}; for(const [kk,vv] of Object.entries(v)) if(typeof vv==='number') q[kk]=vv; q.p=b64(new Uint8Array(v.patch.data)); o[k]=q; } else if(typeof v==='number') o[k]=v; } return o; }
+function unpackEye(o){ const e={}; for(const [k,v] of Object.entries(o)){ if(v&&typeof v==='object'){ const q={}; for(const [kk,vv] of Object.entries(v)) if(kk!=='p') q[kk]=vv; q.patch={data:unb64(v.p)}; e[k]=q; } else e[k]=v; } return e; }
+function profiles(){ const p=lsGet(PROFKEY,{}); return p&&typeof p==='object'&&!Array.isArray(p)?p:{}; }
+function saveProfile(name,quiet){
+  name=(name||curProfile()||'').trim(); if(!name||!window.webgazer) return false;
+  let data=[]; try{ data=(webgazer.getRegression()[0].getData()||[]).filter(d=>d?.eyes&&d.eyes.left?.patch?.data&&d.eyes.right?.patch?.data).slice(-MAXSAMP).map(d=>({e:packEye(d.eyes),s:d.screenPos,ty:d.type})); }catch{}
+  if(!data.length&&!S.acc){ return false; }
+  const P=profiles(); P[name]={t:Date.now(),map:S.map,bias:S.bias,frame:S.frame,acc:S.acc,data};
+  const names=Object.keys(P).sort((a,b)=>P[b].t-P[a].t); for(const n of names.slice(MAXPROF)) if(n!==name) delete P[n];
+  let ok=lsSet(PROFKEY)(P);
+  for(const n of Object.keys(P).sort((x,y)=>P[x].t-P[y].t)){ if(ok) break; if(n===name) continue; delete P[n]; ok=lsSet(PROFKEY)(P); }
+  if(!ok){ if(!quiet) msg('The browser has no room to save this profile. Delete an old one first.',true); return false; }
+  localStorage.setItem(CURKEY,name); renderProfiles(); return true;
+}
+function applyProfile(name){
+  const p=profiles()[name]; if(!p) return false;
+  S.map=p.map||{ax:1,bx:0,ay:1,by:0}; S.bias=p.bias||{x:0,y:0}; S.acc=p.acc??null; if(p.frame) S.frame=p.frame; saveMap();
+  const entries=(p.data||[]).map(d=>({eyes:unpackEye(d.e),screenPos:d.s,type:d.ty}));
+  const put=()=>{ try{ webgazer.clearData(); }catch{} try{ webgazer.getRegression()[0].setData(entries); }catch(e){ console.warn('profile data not applied',e); } };
+  if(S.running) put(); else S.pending=put;
+  localStorage.setItem(CURKEY,name); S.fx.reset(); S.fy.reset(); S.med=[]; S.hist=[]; return true;
+}
+function newPerson(name){
+  name=(name||'').trim(); if(!name) return;
+  const p=priors();
+  S.map=p?.map?{...p.map}:{ax:1,bx:0,ay:1,by:0}; S.bias={x:0,y:0}; S.acc=p?p.acc:null; S.frame=S.running?{...viewFrame(),w:innerWidth,h:innerHeight}:S.frame;
+  const clr=()=>{ try{ webgazer.clearData(); }catch{} }; if(S.running) clr(); else S.pending=clr;
+  localStorage.setItem(CURKEY,name); saveMap(); renderProfiles(); msg(`Profile "${name}" is new. Calibrate now. It starts from what ${p?p.n+' earlier calibrations':'the app'} learned.`);
+}
+function renderProfiles(){
+  const sel=$('eyProf'); if(!sel) return; const P=profiles(), cur=curProfile();
+  sel.replaceChildren(); const o0=document.createElement('option'); o0.value=''; o0.textContent=Object.keys(P).length?'Choose a saved person…':'No saved people yet'; sel.append(o0);
+  for(const n of Object.keys(P).sort((a,b)=>P[b].t-P[a].t)){ const o=document.createElement('option'); o.value=n; o.textContent=`${n} (${P[n].acc!=null?Math.round(P[n].acc)+' px':'new'}, ${new Date(P[n].t).toLocaleDateString()})`; if(n===cur) o.selected=true; sel.append(o); }
+  $('eyWho').textContent=cur?`Calibrating as: ${cur}`:'No person selected: calibration is saved as "default".';
+}
+window.addEventListener('pagehide',()=>{ if(S.running&&curProfile()) saveProfile(curProfile(),true); });
 function onGaze(data){
   if(!data||!S.running) return;
   const now=performance.now(); S.frames++; S.lastGaze=now;
@@ -192,7 +274,7 @@ function renderCalib(){
   $('eyCalibText').textContent=c.phase==='check'
     ?`Keep looking at the dot. Checking accuracy · point ${(c.k||0)+1} of ${CHECK.length}`
     :autoOn()?`Look straight at the glowing dot. It advances by itself · dot ${c.i+1} of ${CAL_PTS.length} · Esc cancels`
-    :`Look straight at the glowing dot and tap your foot, or click it. ${HITS_PER_DOT-c.hits} more for this dot · dot ${c.i+1} of ${CAL_PTS.length} · Esc cancels`;
+    :`Look straight at the glowing dot and tap your foot, or click it. ${hitsPerDot()-c.hits} more for this dot · dot ${c.i+1} of ${CAL_PTS.length} · Esc cancels`;
   if(c.phase==='dots'&&autoOn()){ clearTimeout(c.timer); c.timer=setTimeout(()=>{ if(S.calib===c&&c.phase==='dots') calibHit(); },c.hits===0?950:450); }
 }
 function calibHit(){
@@ -201,7 +283,7 @@ function calibHit(){
   // wait for the eyes to settle after the tap, then take several frames while you keep looking
   for(let k=0;k<SAMPLES_PER_HIT;k++) setTimeout(()=>{ try{ webgazer.recordScreenPosition(x,y,'click'); }catch{} },SETTLE+k*SAMPLE_GAP);
   c.hits++;
-  if(c.hits>=HITS_PER_DOT){ c.i++; c.hits=0; if(c.i>=CAL_PTS.length){ clearTimeout(c.timer); startCheck(); return; } }
+  if(c.hits>=hitsPerDot()){ c.i++; c.hits=0; if(c.i>=CAL_PTS.length){ clearTimeout(c.timer); startCheck(); return; } }
   renderCalib();
 }
 function startCheck(){ const c=S.calib; c.phase='check'; c.k=0; S.check={pts:[],res:[],t0:performance.now()}; renderCalib(); stepCheck(); }
@@ -219,13 +301,15 @@ function fitAxis(m,t){ // least squares t = a*m + b, with the scale kept within 
 }
 function finishCheck(){
   const res=S.check.res, W=innerWidth, H=innerHeight; S.check=null;
-  if(res.filter(Boolean).length<3||!res[0]){ S.fx.reset(); S.fy.reset(); S.med=[]; endCalib(); msg('No gaze data during the check. Make sure your face is visible to the camera, then calibrate again.',true); return; }
+  if(res.filter(Boolean).length<3||!res[0]){ S.fx.reset(); S.fy.reset(); S.med=[]; logCalibration({ok:0,acc:0,pct:0,map:S.map}); endCalib(); msg('No gaze data during the check. Make sure your face is visible to the camera, then calibrate again.',true); return; }
   const xi=[0,1,2].filter(i=>res[i]), yi=[0,3,4].filter(i=>res[i]);
   const fx=xi.length>=2?fitAxis(xi.map(i=>res[i].x/W),xi.map(i=>CHECK[i][0]/100)):{a:1,b:0.5-res[0].x/W}, fy=yi.length>=2?fitAxis(yi.map(i=>res[i].y/H),yi.map(i=>CHECK[i][1]/100)):{a:1,b:0.5-res[0].y/H};
   S.map={ax:1+(fx.a-1)*0.85,bx:clampN(fx.b*0.85,-0.2,0.2),ay:1+(fy.a-1)*0.85,by:clampN(fy.b*0.85,-0.2,0.2)}; S.bias={x:0,y:0}; // blended toward the fit so one bad dot can't throw the mapping off
+  { const pr=priors()?.map; if(pr){ const k=0.2; for(const q of ['ax','bx','ay','by']) S.map[q]=S.map[q]*(1-k)+pr[q]*k; } } // and a little toward the typical fit of earlier good runs
   let err=0,n=0; for(let i=0;i<CHECK.length;i++){ if(!res[i]) continue; const cx=(S.map.ax*(res[i].x/W)+S.map.bx)*W, cy=(S.map.ay*(res[i].y/H)+S.map.by)*H; err+=Math.hypot(cx-CHECK[i][0]/100*W,cy-CHECK[i][1]/100*H); n++; }
   S.acc=err/n; S.fx.reset(); S.fy.reset(); S.med=[]; S.hist=[]; endCalib(); saveMap();
   const pct=S.acc/W*100;
+  logCalibration({ok:1,acc:Math.round(S.acc),pct:+pct.toFixed(2),map:{...S.map}}); saveProfile(curProfile()||'default',true);
   $('eyAcc').textContent=`Last calibration: average error ${Math.round(S.acc)} px after correction (${pct.toFixed(1)}% of the window width), checked at 5 points. Scale correction ${fx.a.toFixed(2)}× / ${fy.a.toFixed(2)}×.`;
   msg(pct<6?'Calibration done. Excellent accuracy. Foot taps (or dwelling) now select where you look.'
     :pct<10?'Calibration done. Good accuracy. Selection works on the region you look at, and every click improves it.'
@@ -270,21 +354,21 @@ function finishTest(){
 
 /* ---------- tracking quality: brightness, face size and position, frame rate, jitter ---------- */
 function qualityTick(){
-  const tips=[]; let score=100, sd=null; const h=S.hist;
+  const tips=[]; let score=100, sd=null; const cond={}; const h=S.hist;
   if(h.length>=4){ let mx=0,my=0; for(const p of h){ mx+=p.x; my+=p.y; } mx/=h.length; my/=h.length; let v=0; for(const p of h) v+=(p.x-mx)**2+(p.y-my)**2; sd=Math.sqrt(v/h.length); }
   if(S.fps&&S.fps<8){ score-=30; tips.push('The tracker is running slowly: close other tabs.'); }
   if(sd!=null&&sd>120){ score-=20; tips.push('Gaze is jumpy: keep your head steady and your face evenly lit.'); }
   try{
     const v=document.getElementById('webgazerVideoFeed');
-    if(v&&v.videoWidth){ const c=S.qc||(S.qc=document.createElement('canvas')); c.width=32; c.height=24; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(v,0,0,32,24); const d=g.getImageData(0,0,32,24).data; let l=0; for(let i=0;i<d.length;i+=4) l+=0.3*d[i]+0.59*d[i+1]+0.11*d[i+2]; l/=d.length/4;
+    if(v&&v.videoWidth){ const c=S.qc||(S.qc=document.createElement('canvas')); c.width=32; c.height=24; const g=c.getContext('2d',{willReadFrequently:true}); g.drawImage(v,0,0,32,24); const d=g.getImageData(0,0,32,24).data; let l=0; for(let i=0;i<d.length;i+=4) l+=0.3*d[i]+0.59*d[i+1]+0.11*d[i+2]; l/=d.length/4; cond.light=Math.round(l);
       if(l<55){ score-=25; tips.push('Too dark: light your face from the front.'); } else if(l>205){ score-=15; tips.push('Too bright or backlit: avoid a window behind you.'); }
       const pos=window.webgazer?.getTracker?.()?.getPositions?.();
-      if(pos&&pos.length>10){ let x0=1e9,x1=-1e9; for(const p of pos){ x0=Math.min(x0,p[0]); x1=Math.max(x1,p[0]); } const fw=(x1-x0)/v.videoWidth, cx=(x0+x1)/2/v.videoWidth;
+      if(pos&&pos.length>10){ let x0=1e9,x1=-1e9; for(const p of pos){ x0=Math.min(x0,p[0]); x1=Math.max(x1,p[0]); } const fw=(x1-x0)/v.videoWidth, cx=(x0+x1)/2/v.videoWidth; cond.fw=+fw.toFixed(3);
         if(fw<0.2){ score-=15; tips.push('Move a little closer to the screen.'); } else if(fw>0.62){ score-=10; tips.push('Move back a little.'); }
         if(Math.abs(cx-0.5)>0.22){ score-=10; tips.push('Centre your face in the camera view.'); } } }
   }catch{}
   if(S.lost){ score=10; tips.unshift("Can't see your face."); }
-  S.quality={score:Math.max(0,score),tips};
+  S.quality={score:Math.max(0,score),tips}; if(cond.light!=null||cond.fw!=null) S.cond={...S.cond,...cond}; S.cond.fps=S.fps;
 }
 /* ---------- loop + wiring ---------- */
 function frame(now){
@@ -312,6 +396,13 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&S.calib){ S.check=null; endCalib(); msg('Calibration cancelled.'); return; }
   if(e.key.toLowerCase()==='k'&&!e.repeat&&$('eyKey').checked&&!isTyping(e)) eyeClick();
 });
+function askName(q,d){ const n=prompt(q,d||''); return n&&n.trim()?n.trim().slice(0,40):''; }
+$('eyProf').onchange=()=>{ const n=$('eyProf').value; if(!n) return; if(S.running&&curProfile()&&curProfile()!==n) saveProfile(curProfile(),true); applyProfile(n); renderProfiles(); msg(`Loaded ${n}'s calibration.${S.running?'':' It is applied when you start the camera.'}`); };
+$('eyProfNew').onclick=()=>{ const n=askName('Name for the new person (their own calibration is saved under it):'); if(!n) return; if(S.running&&curProfile()) saveProfile(curProfile(),true); newPerson(n); };
+$('eyProfSave').onclick=()=>{ const n=curProfile()||askName('Save the current calibration as:','default'); if(n&&saveProfile(n)) msg(`Saved "${n}".`); };
+$('eyProfDel').onclick=()=>{ const n=$('eyProf').value||curProfile(); const P=profiles(); if(!n||!P[n]) return; if(!confirm(`Delete the saved calibration for "${n}"? The calibration history log is kept.`)) return; delete P[n]; lsSet(PROFKEY)(P); if(curProfile()===n) localStorage.removeItem(CURKEY); renderProfiles(); msg(`Deleted "${n}".`); };
+$('eyLogCsv').onclick=logCsv;
+renderProfiles(); renderHist();
 $('eyStart').onclick=start;
 $('eyStop').onclick=stop;
 $('eyCalib').onclick=calibrate;

@@ -693,6 +693,19 @@ th{font-family:var(--sans);font-weight:700}
     <div class="small" id="eyQuality" style="margin-top:4px"></div>
   </section>
   <section class="panel">
+    <h2>Calibration memory</h2>
+    <div class="msg">Every calibration is recorded, and each person's own calibration is kept under their name. The next person picks their name (or adds a new one) and starts from what earlier calibrations learned: a better first guess, a steadier correction and tips for light and distance.</div>
+    <div class="small" id="eyWho"></div>
+    <label>Person <select id="eyProf"></select></label>
+    <div class="row">
+      <button id="eyProfNew">New person…</button>
+      <button id="eyProfSave">Save now</button>
+      <button id="eyProfDel">Delete</button>
+      <button id="eyLogCsv">Download log (CSV)</button>
+    </div>
+    <div class="small" id="eyHist" style="margin-top:6px"></div>
+  </section>
+  <section class="panel">
     <h2>3 · Control</h2>
     <label>Show gaze cursor <input id="eyCursorOn" type="checkbox" checked></label>
     <label>Foot tap clicks where I look <input id="eyClick" type="checkbox" checked></label>
