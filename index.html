@@ -1,0 +1,1941 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EMG Posture Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f4ec;--panel:#fffefb;--line:#e2dece;--text:#1d2a22;--muted:#5d6a60;--accent:#2d7a53;--stand:#2d7a53;--lie:#c5701c;--danger:#c8443a;--soft:#e4f0e6;--canvas:#faf9f3;--shadow:0 1px 2px rgba(40,52,30,.06),0 8px 22px rgba(40,52,30,.06);--serif:Georgia,"Iowan Old Style","Palatino Linotype",serif}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#e9efdc 0,var(--bg) 380px) no-repeat,var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 24px;background:#fffefb;border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(40,52,30,.04),0 4px 14px rgba(40,52,30,.05);position:relative;z-index:5}
+header h1{font-family:var(--serif);font-size:21px;margin:0 14px 0 0;font-weight:600;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:10px}
+header h1::before{content:"";width:10px;height:22px;border-radius:4px;background:linear-gradient(180deg,#5aa879,#2d7a53 70%,#1f5b3c)}
+.pill{padding:3px 11px;border-radius:99px;background:#efede1;color:var(--muted);font-size:12px;font-weight:500;border:1px solid #e1ddcc}
+.pill.on{background:#e0f0e4;color:#1e6a43;border-color:#bcdcc6}
+.pill.warn{background:#fbecd6;color:#9a5410;border-color:#efd3a6}
+main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:20px 24px;max-width:1700px;margin:0 auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#3f5446;margin:0 0 12px;font-weight:700}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;color:var(--muted)}
+input,select{background:#fff;color:var(--text);border:1px solid #d3cfbd;border-radius:8px;padding:5px 8px;width:110px;font:inherit;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,122,83,.2)}
+input[type=checkbox]{width:auto}
+button{background:#fff;color:var(--text);border:1px solid #d3cfbd;border-radius:9px;padding:7px 13px;font:inherit;font-weight:500;cursor:pointer;box-shadow:0 1px 1px rgba(40,52,30,.06);transition:background .15s,border-color .15s,box-shadow .15s,transform .05s}
+button:hover:not(:disabled){border-color:var(--accent);background:#f1f7f1;box-shadow:0 2px 6px rgba(45,122,83,.16)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:focus-visible{outline:3px solid rgba(45,122,83,.35);outline-offset:1px}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:linear-gradient(180deg,#3d8c63,var(--accent));color:#fff;border-color:#24634a;font-weight:600}
+button.primary:hover:not(:disabled){background:linear-gradient(180deg,#489971,#2f8458);border-color:#24634a}
+button.stand{border-color:#9ccdb0;color:#1e6a43;background:#f2f9f4}
+button.lie{border-color:#e9c697;color:#9a5410;background:#fff9ef}
+button.active{background:var(--danger)!important;color:#fff!important;border-color:var(--danger)!important}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.small{font-size:12px;color:var(--muted)}
+.msg{font-size:12px;color:var(--muted);margin-top:8px;white-space:pre-line}
+.msg.err{color:var(--danger)}
+.state{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+#stateLabel{font-family:var(--serif);font-size:42px;font-weight:600;letter-spacing:.02em;min-width:230px}
+.bar{height:10px;background:#e8e5d6;border-radius:99px;overflow:hidden;width:220px}
+.bar>div{height:100%;width:50%;background:var(--accent);transition:width .15s}
+.stats{display:flex;gap:22px;flex-wrap:wrap}
+.stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+canvas{width:100%;display:block;background:var(--canvas);border:1px solid #e5e1d1;border-radius:10px}
+table{border-collapse:collapse;font-size:12px;margin-top:8px;width:100%}
+td,th{border:1px solid var(--line);padding:3px 6px;text-align:right}
+th{color:#3f5446;font-weight:600;background:#f2f0e4}
+.tw{overflow-x:auto}
+[hidden]{display:none!important}
+nav.tabs{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav.tabs button{background:transparent;border-color:transparent;color:var(--muted);box-shadow:none;border-radius:99px;padding:6px 13px}
+nav.tabs button:hover:not(:disabled):not([aria-selected="true"]){background:#ecf2e6;border-color:transparent;box-shadow:none;color:var(--text)}
+nav.tabs button[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(45,122,83,.35)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.vs{grid-template-columns:1fr}}
+.vs .panel{margin-bottom:0}
+.big{font-size:30px;font-weight:700;margin:2px 0 8px}
+.cue{font-size:52px;font-weight:800;text-align:center;letter-spacing:.02em;padding:10px 0 4px}
+.verdict{font-size:15px;line-height:1.55;margin-top:12px;white-space:pre-line}
+td.win{color:var(--stand);font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{background:#faf9f3;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.card.me{border-color:var(--accent)}
+.card.stale{opacity:.45}
+.card .name{font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.card .tag{font-size:11px;color:var(--accent);font-weight:500}
+input.wide{width:170px}
+.roster{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.roster button{padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px}
+.roster button.sel{border-color:var(--accent);background:var(--soft);box-shadow:0 0 0 2px rgba(45,122,83,.22)}
+.roster canvas{width:64px;height:52px;background:transparent;border:0}
+#gameCanvas{background:#1b2440;border:0}
+.arenas{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.arenas button{padding:3px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px}
+.arenas button.sel{border-color:var(--accent);background:var(--soft);box-shadow:0 0 0 2px rgba(45,122,83,.22)}
+.arenas canvas{width:100%;aspect-ratio:16/9;height:auto;border-radius:6px;border:0}
+.gaze-cursor{position:fixed;left:0;top:0;width:36px;height:36px;border-radius:50%;border:3px solid var(--accent);background:rgba(45,122,83,.16);box-shadow:0 0 0 2px rgba(255,255,255,.9);will-change:transform;pointer-events:none;z-index:10000}
+.gaze-cursor.flash{background:rgba(62,207,142,.6);border-color:var(--stand)}
+.gaze-hover{outline:3px solid var(--accent)!important;outline-offset:2px}
+.calib-layer{position:fixed;inset:0;background:rgba(247,245,236,.98);z-index:9999}
+.calib-text{position:absolute;left:50%;top:50%;transform:translate(-50%,48px);text-align:center;color:var(--text);font-size:16px;width:min(520px,90vw);line-height:1.5}
+.cal-dot{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:#cbc7b4;border:0;padding:0}
+.cal-dot.current{background:var(--accent);box-shadow:0 0 0 10px rgba(45,122,83,.24);animation:calpulse 1s ease-in-out infinite}
+.cal-dot.done{background:var(--stand)}
+@keyframes calpulse{50%{box-shadow:0 0 0 18px rgba(45,122,83,.08)}}
+@media (prefers-reduced-motion:reduce){.cal-dot.current{animation:none}}
+.eye-arena{position:relative;height:380px;border:1px dashed var(--line);border-radius:10px;margin-top:10px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.eye-target{position:absolute;width:70px;height:70px;border-radius:50%;background:var(--stand);color:#fff;box-shadow:0 4px 14px rgba(45,122,83,.35);font-weight:700;font-size:18px;border:0}
+.alert-bar{position:sticky;top:0;z-index:50;display:flex;flex-direction:column;gap:6px;padding:8px 20px;background:#fbeae6;border-bottom:1px solid #efb8af}
+.alert-item{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#8f1d1d;font-weight:600}
+.alert-item.fall{color:#b01616}
+.card.alarm{border-color:var(--danger);box-shadow:0 0 0 2px rgba(255,93,93,.35)}
+.card-alert{display:flex;gap:8px;align-items:center;justify-content:space-between;background:#fdeceb;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:600;color:#8f1d1d}
+.card canvas{width:100%}
+.flexmeter{position:relative;height:30px;background:#e8e5d6;border-radius:9px;overflow:hidden;margin:10px 0 4px}
+.flexmeter>#xFill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#3ecf8e,#f0c040 60%,#ff5d5d);transition:width .08s}
+.flexmeter>#xTarget{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#1d2a22;box-shadow:0 0 0 2px #fff;display:none}
+.flexticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.birds{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.birds button{padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;line-height:1.2;min-height:62px}
+.birds button.sel,.courses button.sel{border-color:var(--accent);background:var(--soft);box-shadow:0 0 0 2px rgba(45,122,83,.22)}
+.birds img{width:84px;height:63px}
+.birds .dot{width:30px;height:30px;border-radius:50%;margin:8px 0}
+.courses{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.courses button{padding:4px;font-size:11px;display:flex;flex-direction:column;gap:3px;align-items:stretch}
+.courses .sw{height:34px;border-radius:4px}
+.race-wrap{position:relative;padding:0;overflow:hidden;aspect-ratio:16/9;background:#0b0e12;border-radius:14px}
+.race-wrap canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:0;background:transparent;border:0}
+#raceHud{pointer-events:none}
+.panel h2,.stat span,.small{font-feature-settings:'tnum'}
+.race-wrap:fullscreen{aspect-ratio:auto;border-radius:0}
+#rFull{position:absolute;right:8px;bottom:8px;z-index:2;opacity:.75;font-size:12px;padding:4px 8px}
+#webgazerVideoContainer{top:auto!important;left:auto!important;right:16px!important;bottom:16px!important;z-index:9000!important}
+
+/* ---- type and polish (fonts load from Google Fonts when online; the stacks fall back to system fonts offline) ---- */
+:root{--sans:"DM Sans","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;--serif:"Fraunces","Iowan Old Style","Palatino Linotype",Georgia,serif;--ring:rgba(45,122,83,.22)}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);font-size:14.5px;line-height:1.55;font-optical-sizing:auto}
+::selection{background:#bfe3cc}
+header{background:rgba(255,254,251,.86);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);position:sticky;top:0}
+header h1{font-family:var(--serif);font-weight:600;font-size:24px;letter-spacing:-.02em}
+header h1::before{width:9px;height:24px;border-radius:5px;box-shadow:0 2px 8px rgba(45,122,83,.35)}
+.pill{font-family:var(--sans);font-weight:600;font-size:11.5px;letter-spacing:.01em;padding:4px 12px}
+nav.tabs button{font-weight:600;font-size:13.5px;padding:7px 15px;letter-spacing:-.005em;transition:background .18s,color .18s,box-shadow .18s}
+nav.tabs button[aria-selected="true"]{box-shadow:0 4px 14px -2px rgba(45,122,83,.5)}
+.panel{border-radius:20px;padding:20px;border-color:#e7e3d3;background:linear-gradient(180deg,#fffffc,#fffefa);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 1px 2px rgba(40,52,30,.05),0 18px 40px -16px rgba(40,70,45,.2)}
+.panel h2{font-family:var(--serif);font-size:16px;font-weight:600;text-transform:none;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.panel h2::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(45,122,83,.14);flex:none}
+label{font-weight:500;color:#4d5a50}
+input,select{border-radius:11px;border:1px solid #d9d5c4;background:#fffefb;padding:7px 11px;box-shadow:0 1px 0 rgba(255,255,255,.9) inset}
+select{appearance:none;-webkit-appearance:none;padding-right:30px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232d7a53' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+input:focus,select:focus{box-shadow:0 0 0 4px var(--ring);border-color:var(--accent)}
+input[type=range]{accent-color:var(--accent);padding:0}
+input[type=checkbox]{accent-color:var(--accent);width:17px;height:17px;padding:0}
+button{border-radius:12px;font-weight:600;padding:8px 15px;border-color:#d9d5c4;letter-spacing:-.005em}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button.primary{box-shadow:0 6px 16px -6px rgba(45,122,83,.65);border:0}
+.small,.msg{font-size:12.5px;line-height:1.55}
+.msg{background:#f6f5ec;border-radius:10px;padding:8px 11px;margin-top:10px}
+.msg:empty{display:none}
+.birds button,.courses button{border-radius:13px;transition:transform .16s,box-shadow .16s,border-color .16s,background .16s}
+.birds button:hover,.courses button:hover{transform:translateY(-2px);box-shadow:0 8px 18px -8px rgba(45,122,83,.4)}
+.birds button{font-weight:600;font-size:11.5px}
+.courses .sw{height:38px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.15) inset}
+.race-wrap{border-radius:20px;box-shadow:0 28px 60px -22px rgba(20,50,35,.55),0 0 0 1px rgba(30,60,40,.12)}
+#rFull{border-radius:10px;backdrop-filter:blur(6px);font-weight:600}
+.card{border-radius:16px}
+.cue{font-family:var(--serif)}
+.big{font-family:var(--serif);letter-spacing:-.02em}
+.stat b{font-family:var(--serif);font-weight:600}
+table{font-size:12.5px}
+th{font-family:var(--sans);font-weight:700}
+.alert-bar{font-family:var(--sans)}
+*{scrollbar-width:thin;scrollbar-color:#c9d6c8 transparent}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#c9d6c8;border-radius:99px;border:2px solid transparent;background-clip:content-box}
+@media (prefers-reduced-motion:reduce){button,.birds button,.courses button{transition:none}button:hover:not(:disabled){transform:none}}
+
+/* ---- Tap Brawl 3D + fullscreen ---- */
+#gameWrap{display:grid;position:relative}
+#gameWrap>canvas{grid-area:1/1;width:100%;aspect-ratio:16/9;height:auto}
+#gameGL{display:none;border-radius:10px;background:#1b2440}
+#gameWrap.is3d #gameGL{display:block}
+#gameWrap.is3d #gameCanvas{background:transparent;border-color:transparent}
+.fs-btn{position:absolute;right:16px;bottom:16px;z-index:3;opacity:.8;font-size:12px;padding:5px 10px;border-radius:10px;backdrop-filter:blur(6px)}
+.fs-btn:hover{opacity:1}
+#gameWrap:fullscreen{background:#0b0e12;padding:0!important;border-radius:0;border:0;align-content:center;justify-content:center}
+#gameWrap:fullscreen>canvas{width:min(100vw,177.78vh);border-radius:0}
+#gameWrap:fullscreen .fs-btn{position:fixed}
+.eye-arena:fullscreen{height:100vh;margin:0;border-radius:0;border:0;background:#f6f4ec}
+.eye-arena:fullscreen::before{content:attr(data-info);position:absolute;left:18px;top:12px;font-size:15px;color:var(--muted)}
+
+/* ---- gaze region, dwell, fullscreen game menu ---- */
+.gaze-cursor{width:200px;height:200px;margin:0;border-radius:50%;border:1.5px solid rgba(45,122,83,.8);background:radial-gradient(circle,rgba(45,122,83,.22) 0,rgba(45,122,83,.1) 55%,rgba(45,122,83,.03) 100%);box-shadow:0 0 0 1px rgba(255,255,255,.65),0 0 34px rgba(45,122,83,.28);transform-origin:center;pointer-events:none}
+.gaze-cursor::after{content:"";position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px rgba(255,255,255,.9)}
+.gaze-cursor.locked{border-color:#1e6a43;background:radial-gradient(circle,rgba(45,122,83,.32) 0,rgba(45,122,83,.14) 55%,rgba(45,122,83,.04) 100%)}
+.gaze-cand{outline:2px dashed rgba(45,122,83,.55)!important;outline-offset:3px}
+.gaze-hover{outline:3px solid var(--accent)!important;outline-offset:3px;box-shadow:0 0 0 calc(var(--dwell,0)*14px) rgba(45,122,83,.3)!important}
+#rMenuBtn{display:none;position:absolute;right:18px;bottom:18px;min-width:160px;min-height:68px;font-size:18px;font-weight:700;z-index:4;border-radius:18px;background:rgba(255,254,251,.92)}
+.race-wrap:fullscreen #rMenuBtn{display:block}
+.race-wrap:fullscreen #rFull{display:none}
+.race-wrap.eye-on:fullscreen{cursor:none}
+#rMenu{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:rgba(10,22,16,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#rMenu[hidden]{display:none!important}
+.rm-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,210px));gap:14px;padding:16px}
+@media(max-width:1000px){.rm-grid{grid-template-columns:repeat(3,minmax(120px,190px))}}
+.rm-grid button{min-height:92px;font-size:17px;font-weight:700;border-radius:18px;background:#fffefb;white-space:normal;line-height:1.25}
+.rm-grid button small{display:block;font-weight:500;font-size:12.5px;color:var(--muted);margin-top:4px}
+.rm-grid button.primary{background:linear-gradient(180deg,#3d8c63,var(--accent));color:#fff}
+.rm-grid button.primary small{color:#d7efe0}
+</style>
+</head>
+<body>
+<header>
+  <h1>EMG Posture Lab</h1>
+  <span class="pill" id="connPill">Disconnected</span>
+  <span class="pill" id="fsPill">0 samples/s</span>
+  <span class="pill" id="dataPill">0 windows</span>
+  <nav class="tabs" aria-label="Sections">
+    <button data-tab="tabTrain" aria-selected="true">Record &amp; Train</button>
+    <button data-tab="tabTest" aria-selected="false">Test: FFT vs ML</button>
+    <button data-tab="tabShare" aria-selected="false">Share live</button>
+    <button data-tab="tabTap" aria-selected="false">Foot tap</button>
+    <button data-tab="tabFlex" aria-selected="false">Flex intensity</button>
+    <button data-tab="tabGame" aria-selected="false">Tap Brawl</button>
+    <button data-tab="tabRace" aria-selected="false">Sky Race</button>
+    <button data-tab="tabEyes" aria-selected="false">Eye control</button>
+  </nav>
+</header>
+<div id="alertBar" class="alert-bar" hidden role="alert"></div>
+
+<main id="tabTrain" class="tab">
+<aside>
+  <section class="panel">
+    <h2>1 · Source</h2>
+    <label>Baud rate <input id="baud" type="number" value="921600"></label>
+    <div class="row">
+      <button class="primary" id="btnConnect">Connect ESP32</button>
+      <button id="btnDisconnect" disabled>Disconnect</button>
+    </div>
+    <div class="row">
+      <button id="btnDemo">Start demo signal</button>
+    </div>
+    <div class="row" id="demoCtl" hidden>
+      <span class="small" style="align-self:center">Simulate:</span>
+      <button class="stand" id="demoStand">Standing</button>
+      <button class="lie" id="demoLie">Lying / still</button>
+      <button id="demoTap">Tapping</button>
+      <button id="demoRaise">Calf raise (tiring)</button>
+      <button id="demoFlexBtn">Flex</button>
+      <input id="demoFlex" type="range" min="0" max="100" value="50" title="Simulated flex level" style="width:110px">
+    </div>
+    <div class="msg" id="srcMsg">Needs Chrome or Edge (Web Serial). Demo mode works without hardware.</div>
+  </section>
+
+  <section class="panel">
+    <h2>2 · Signal processing</h2>
+    <label>Sample rate (Hz) <input id="fs" type="number" value="2000"></label>
+    <label>ADC midpoint <input id="mid" type="number" value="2048"></label>
+    <label>Band-pass low (Hz) <input id="lo" type="number" value="20"></label>
+    <label>Band-pass high (Hz) <input id="hi" type="number" value="450"></label>
+    <label>Mains notch <select id="notch"><option value="60">60 Hz (+harmonics)</option><option value="50">50 Hz (+harmonics)</option><option value="0">Off</option></select></label>
+    <label>FFT window <select id="N"><option value="256">256 samples</option><option value="512" selected>512 samples</option><option value="1024">1024 samples</option></select></label>
+    <div class="row"><button id="btnApply">Apply</button></div>
+    <div class="msg" id="cfgMsg"></div>
+  </section>
+
+  <section class="panel">
+    <h2>3 · Record labeled data</h2>
+    <label>Duration per take (s) <input id="recDur" type="number" value="30"></label>
+    <label>Ignore first (s) <input id="recSkip" type="number" value="2"></label>
+    <div class="row">
+      <button class="stand" id="recStand">● Standing</button>
+      <button class="lie" id="recLie">● Lying</button>
+      <button id="recStop" disabled>■ Stop</button>
+    </div>
+    <div class="small" id="recInfo">Not recording</div>
+    <div class="small" id="countInfo" style="margin-top:6px"></div>
+    <div class="row">
+      <button id="btnExport">Export CSV</button>
+      <button id="btnImport">Import CSV</button>
+      <button id="btnClear">Clear</button>
+      <input id="fileIn" type="file" accept=".csv" hidden>
+    </div>
+    <div class="msg">Tip: do several takes of each posture, re-seating electrodes between some of them. Each take is held out partly for testing.</div>
+  </section>
+
+  <section class="panel">
+    <h2>4 · Train &amp; predict</h2>
+    <div class="row">
+      <button class="primary" id="btnTrain">Train model</button>
+      <button id="btnSaveModel" disabled>Save model</button>
+      <button id="btnLoadModel">Load model</button>
+      <input id="modelIn" type="file" accept=".json" hidden>
+    </div>
+    <div class="small" id="modelInfo">No model loaded</div>
+    <label>Live prediction <input id="predOn" type="checkbox"></label>
+    <label>Smoothing (windows) <input id="smooth" type="number" value="6"></label>
+    <div class="msg" id="trainMsg">Logistic regression on time + FFT features.</div>
+    <div class="tw" id="trainTable"></div>
+  </section>
+</aside>
+
+<section>
+  <div class="panel">
+    <div class="state">
+      <div>
+        <div class="small">Predicted state</div>
+        <div id="stateLabel">—</div>
+        <div class="bar"><div id="probBar"></div></div>
+        <div class="small" id="probTxt">P(standing) = –</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="sRms">–</b><span>RMS (ADC counts)</span></div>
+        <div class="stat"><b id="sMnf">–</b><span>Mean freq (Hz)</span></div>
+        <div class="stat"><b id="sMdf">–</b><span>Median freq (Hz)</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel"><h2>Filtered EMG · last 2 s</h2><canvas id="cSig" style="height:200px"></canvas></div>
+  <div class="panel"><h2>Power spectrum (FFT, Hann window)</h2><canvas id="cSpec" style="height:200px"></canvas></div>
+  <div class="panel"><h2>History · last 60 s <span style="color:var(--accent)">— RMS (log)</span> <span style="color:var(--stand)">— P(standing)</span></h2><canvas id="cHist" style="height:160px"></canvas></div>
+</section>
+</main>
+
+<main id="tabTest" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>The two detectors</h2>
+    <div class="msg" id="detInfo" style="margin-top:0">Train a model on the Record &amp; Train tab first. Training builds both detectors from the same data.</div>
+    <label>FFT rule uses <select id="fftFeat" style="width:160px"></select></label>
+    <div class="msg"><b>FFT rule:</b> one feature from the FFT spectrum with one threshold picked from your recordings. No machine learning.
+<b>ML:</b> logistic regression that combines every time and FFT feature.</div>
+  </section>
+  <section class="panel">
+    <h2>Test protocol</h2>
+    <label>Rounds <input id="tRounds" type="number" value="3" min="1"></label>
+    <label>Seconds per posture <input id="tDur" type="number" value="20" min="5"></label>
+    <label>Transition time (s) <input id="tSettle" type="number" value="4" min="0"></label>
+    <label>Start with <select id="tFirst"><option value="standing">Standing</option><option value="lying">Lying</option></select></label>
+    <label>Spoken cues <input id="tVoice" type="checkbox" checked></label>
+    <div class="row">
+      <button class="primary" id="tStart">Start test</button>
+      <button id="tStop" disabled>Stop</button>
+      <button id="tExport" disabled>Export results</button>
+    </div>
+    <div class="msg">The page tells you when to stand and when to lie down. Windows during the transition time don't count toward accuracy; they're used to measure how fast each method reacts. Use a new session, not the data you trained on.</div>
+  </section>
+</aside>
+<section>
+  <div class="panel">
+    <div class="cue" id="tCue">Ready</div>
+    <div class="small" id="tCueSub" style="text-align:center">Press “Start test” to begin</div>
+  </div>
+  <div class="vs" style="margin-bottom:14px">
+    <div class="panel">
+      <h2>FFT rule</h2>
+      <div class="big" id="fftState">—</div>
+      <div class="bar"><div id="fftBar"></div></div>
+      <div class="msg" id="fftDesc"></div>
+    </div>
+    <div class="panel">
+      <h2>Machine learning</h2>
+      <div class="big" id="mlState">—</div>
+      <div class="bar"><div id="mlBar"></div></div>
+      <div class="msg" id="mlDesc"></div>
+    </div>
+  </div>
+  <div class="panel"><h2>Test timeline <span style="text-transform:none;letter-spacing:0">· <span style="color:var(--stand)">standing</span> · <span style="color:var(--lie)">lying</span> · grey = transition</span></h2><canvas id="cTest" style="height:220px"></canvas></div>
+  <div class="panel">
+    <h2>Results</h2>
+    <div class="tw" id="tResults"><span class="small">Run a test to compare the two methods.</span></div>
+    <div class="verdict" id="tVerdict"></div>
+  </div>
+</section>
+</main>
+
+<main id="tabShare" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>Share your signal live</h2>
+    <label>Your name <input id="shName" class="wide" maxlength="30" placeholder="First name"></label>
+    <label>Room code <input id="shRoom" class="wide" maxlength="40"></label>
+    <div class="row"><button id="shNewRoom">New room code</button><button id="shCopy">Copy code</button></div>
+    <label>Broker <input id="shBroker" class="wide"></label>
+    <div class="row">
+      <button class="primary" id="shJoin">Join room</button>
+      <button id="shLeave" disabled>Leave</button>
+    </div>
+    <div class="msg" id="shMsg">Everyone in the room streams their raw EMG signal. Your page runs each signal through your filters, FFT and trained posture model to decide who is standing or lying. Nobody sets a status by hand.</div>
+    <div class="msg">Your model learned from your body. It works best on other people when their electrodes and amplifier gain match yours. If their results look wrong, they can record a little data and train their own model.</div>
+    <div class="msg">This uses a free public MQTT server. Anyone with the room code can receive the signals in it, so keep the random code and use just a first name.</div>
+  </section>
+  <section class="panel">
+    <h2>Safety alerts</h2>
+    <label>Fall alerts <input id="alFall" type="checkbox" checked></label>
+    <label>Sudden if faster than (s) <input id="alFallWin" type="number" value="1.5" step="0.5" min="0.5"></label>
+    <label>Alert if still down after (s) <input id="alConfirm" type="number" value="15" min="3"></label>
+    <label>Inactivity reminder (min) <input id="alInactive" type="number" value="30" min="0.5" step="0.5"></label>
+    <label>Spoken alerts <input id="alVoice" type="checkbox" checked></label>
+    <div class="msg">Alerts run on this computer for you and for everyone streaming in the room, using your model. Calf EMG looks the same when sitting, lying or fallen, so sitting down quickly can also set off a fall alert. Adding an accelerometer would make fall detection dependable. This is a student project, not a medical device.</div>
+  </section>
+  <section class="panel">
+    <h2>Muscle fatigue test</h2>
+    <label>Person <select id="ftWho" style="width:160px"></select></label>
+    <div class="row">
+      <button class="primary" id="ftStart">Start</button>
+      <button id="ftStop" disabled>Stop</button>
+      <button id="ftExport" disabled>Export CSV</button>
+    </div>
+    <div class="msg">Stand on tiptoes (a calf raise) and hold it as long as you can, then press Stop. As a muscle tires, the median frequency of its EMG falls. The slope of that fall is the fatigue index. You can test anyone who is streaming in the room.</div>
+  </section>
+</aside>
+<section>
+  <div class="panel"><h2>People · posture, 10-minute timeline and alerts</h2><div class="cards" id="shPeople"></div></div>
+  <div class="panel">
+    <h2>Fatigue test · median frequency over time</h2>
+    <canvas id="cFat" style="height:240px"></canvas>
+    <div class="verdict" id="ftResult">Start a test to see the median frequency trend.</div>
+  </div>
+</section>
+</main>
+
+<main id="tabTap" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>1 · Record tap data</h2>
+    <div class="msg" style="margin-top:0">Sit in a chair with the electrodes on your calf. Tap by lifting your heel and putting it back down. Your calf muscle does that movement, so the existing electrodes pick it up.</div>
+    <label>Duration per take (s) <input id="kRecDur" type="number" value="20"></label>
+    <label>Ignore first (s) <input id="kRecSkip" type="number" value="2"></label>
+    <div class="row">
+      <button class="stand" id="kRecTap">● Tapping</button>
+      <button class="lie" id="kRecStill">● Still</button>
+      <button id="kRecStop" disabled>■ Stop</button>
+    </div>
+    <div class="small" id="kRecInfo">Not recording</div>
+    <div class="small" id="kCounts" style="margin-top:6px"></div>
+    <div class="row"><button id="kClear">Clear tap data</button></div>
+  </section>
+  <section class="panel">
+    <h2>2 · Train tap model</h2>
+    <div class="row">
+      <button class="primary" id="kTrain">Train</button>
+      <button id="kSave" disabled>Save model</button>
+      <button id="kLoad">Load model</button>
+      <input id="kModelIn" type="file" accept=".json" hidden>
+    </div>
+    <div class="small" id="kModelInfo">No tap model yet</div>
+    <label>Smoothing (windows) <input id="kSmooth" type="number" value="2" min="1"></label>
+    <label>Game attacks use <select id="kMethod" style="width:130px"><option value="ml">ML</option><option value="fft">FFT rule</option></select></label>
+    <div class="msg" id="kTrainMsg"></div>
+  </section>
+  <section class="panel">
+    <h2>3 · Live test</h2>
+    <label>Rounds <input id="kRounds" type="number" value="3" min="1"></label>
+    <label>Seconds per step <input id="kDur" type="number" value="15" min="5"></label>
+    <label>Transition time (s) <input id="kSettle" type="number" value="2" min="0"></label>
+    <label>Start with <select id="kFirst"><option value="tapping">Tapping</option><option value="still">Still</option></select></label>
+    <label>Spoken cues <input id="kVoice" type="checkbox" checked></label>
+    <div class="row">
+      <button class="primary" id="kStart">Start test</button>
+      <button id="kStop" disabled>Stop</button>
+      <button id="kExport" disabled>Export results</button>
+    </div>
+  </section>
+</aside>
+<section>
+  <div class="panel">
+    <div class="cue" id="kCue">Ready</div>
+    <div class="small" id="kCueSub" style="text-align:center">Press “Start test” to begin</div>
+  </div>
+  <div class="vs" style="margin-bottom:14px">
+    <div class="panel"><h2>FFT rule</h2><div class="big" id="kFft">—</div><div class="bar"><div id="kFftBar"></div></div><div class="msg" id="kFftDesc"></div></div>
+    <div class="panel"><h2>Machine learning</h2><div class="big" id="kMl">—</div><div class="bar"><div id="kMlBar"></div></div><div class="msg" id="kMlDesc"></div></div>
+  </div>
+  <div class="panel" id="kAttackBox" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;border-width:2px">
+    <div><div class="small">Taps detected</div><div class="big" id="kAttacks">0</div></div>
+    <div class="msg" style="margin:0">Each tap the detector picks up is one attack in Tap Brawl.</div>
+  </div>
+  <div class="panel"><h2>Test timeline <span style="text-transform:none;letter-spacing:0">· <span style="color:var(--stand)">tapping</span> · <span style="color:var(--lie)">still</span> · grey = transition</span></h2><canvas id="cTapTest" style="height:220px"></canvas></div>
+  <div class="panel">
+    <h2>Results</h2>
+    <div class="tw" id="kResults"><span class="small">Run a test to compare the two methods.</span></div>
+    <div class="verdict" id="kVerdict"></div>
+  </div>
+</section>
+</main>
+
+<main id="tabFlex" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>1 · Calibrate flex levels</h2>
+    <div class="msg" style="margin-top:0">Flex the muscle under the electrodes at the level on screen. With the electrodes on your calf: sit, keep your foot flat and press the ball of your foot into the floor. 100% means as hard as you can, held for only a few seconds.</div>
+    <label>Seconds per level <input id="xDur" type="number" value="6" min="3"></label>
+    <label>Transition time (s) <input id="xSettle" type="number" value="2" min="0"></label>
+    <label>Rounds <input id="xRounds" type="number" value="2" min="1" max="5"></label>
+    <label>Spoken cues <input id="xVoice" type="checkbox" checked></label>
+    <div class="row"><button class="primary" id="xCal">Start guided calibration</button><button id="xCalStop" disabled>Stop</button></div>
+    <div class="small" style="margin-top:10px">Or record one level by hand</div>
+    <div class="row">
+      <select id="xLevel" style="width:130px"><option value="0">0% (relaxed)</option><option value="0.25">25%</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100% (max)</option></select>
+      <button id="xRec">● Record</button><button id="xRecStop" disabled>■ Stop</button>
+    </div>
+    <label>Duration per take (s) <input id="xRecDur" type="number" value="8" min="2"></label>
+    <div class="small" id="xRecInfo">Not recording</div>
+    <div class="small" id="xCounts" style="margin-top:6px"></div>
+    <div class="row"><button id="xClear">Clear flex data</button></div>
+  </section>
+  <section class="panel">
+    <h2>2 · Train intensity model</h2>
+    <div class="row">
+      <button class="primary" id="xTrain">Train</button>
+      <button id="xSave" disabled>Save model</button>
+      <button id="xLoad">Load model</button>
+      <input id="xModelIn" type="file" accept=".json" hidden>
+    </div>
+    <div class="small" id="xModelInfo">No flex model yet</div>
+    <label>Game boost uses <select id="xMethod" style="width:130px"><option value="ml">ML (ridge)</option><option value="rms">RMS curve</option></select></label>
+    <label>Smoothing (s) <input id="xTau" type="number" value="0.2" min="0" step="0.05"></label>
+    <label>Dead zone (%) <input id="xDead" type="number" value="8" min="0" max="50"></label>
+    <div class="msg" id="xTrainMsg"></div>
+  </section>
+</aside>
+<section>
+  <div class="panel">
+    <div class="cue" id="xCue">—</div>
+    <div class="small" id="xCueSub" style="text-align:center">Connect the ESP32 or start the demo signal, then calibrate.</div>
+    <div class="flexmeter"><div id="xFill"></div><div id="xTarget"></div></div>
+    <div class="flexticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+  </div>
+  <div class="vs" style="margin-bottom:14px">
+    <div class="panel"><h2>RMS curve (no ML)</h2><div class="big" id="xRms">—</div><div class="bar"><div id="xRmsBar"></div></div><div class="msg" id="xRmsDesc"></div></div>
+    <div class="panel"><h2>Machine learning (ridge regression)</h2><div class="big" id="xMl">—</div><div class="bar"><div id="xMlBar"></div></div><div class="msg" id="xMlDesc"></div></div>
+  </div>
+  <div class="panel"><h2>Intensity, last 30 s <span style="text-transform:none;letter-spacing:0">· <span style="color:#b4561f">RMS curve</span> · <span style="color:var(--accent)">ML</span> · white = target</span></h2><canvas id="cFlex" style="height:220px"></canvas></div>
+  <div class="panel">
+    <h2>Calibration fit</h2>
+    <div class="tw" id="xFit"><span class="small">Train a model to see how well each method tracks each level.</span></div>
+  </div>
+</section>
+</main>
+
+<main id="tabGame" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>Tap Brawl</h2>
+    <label>Your name <input id="gName" class="wide" maxlength="16" placeholder="First name"></label>
+    <label>Room code <input id="gRoom" class="wide" maxlength="40"></label>
+    <div class="row"><button id="gNewRoom">New room code</button><button id="gCopy">Copy code</button></div>
+    <div class="small" style="margin:10px 0 6px">Choose your fighter</div>
+    <div id="gRoster" class="roster"></div>
+    <div class="msg" id="gPick"></div>
+    <div class="small" style="margin:10px 0 6px">Arena</div>
+    <div id="gArenas" class="arenas"></div>
+    <div class="msg" id="gArenaInfo"></div>
+    <div class="row">
+      <button class="primary" id="gJoin">Join arena</button>
+      <button id="gLeave" disabled>Leave</button>
+      <button id="gStartMatch" disabled>Start match</button>
+    </div>
+    <label>Keyboard attack (J key) <input id="gKeyAtk" type="checkbox"></label>
+    <label>3D view <input id="gView3d" type="checkbox" checked></label>
+    <label>Practice dummy <input id="gDummy" type="checkbox" checked></label>
+    <div class="msg" id="gMsg">You can practice right away. Join an arena to fight friends who use the same room code.</div>
+  </section>
+  <section class="panel">
+    <h2>How to play</h2>
+    <div class="small" style="line-height:1.7">
+      A / D or ← / → : move<br>
+      W, ↑ or Space : jump (press again in the air to double jump)<br>
+      S or ↓ : fall fast, drop through floating platforms<br>
+      <b style="color:var(--stand)">Tap your foot : attack</b><br>
+      Hits raise the target's damage %. Higher damage means they fly farther. Knock opponents past the edge of the screen. Each player has 3 lives.
+    </div>
+  </section>
+</aside>
+<section>
+  <div class="panel" id="gameWrap" style="padding:8px"><canvas id="gameGL"></canvas><canvas id="gameCanvas" style="aspect-ratio:16/9"></canvas><button id="gFull" data-fs="gameWrap" class="fs-btn">Fullscreen</button></div>
+</section>
+</main>
+<main id="tabRace" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>Sky Race</h2>
+    <label>Your name <input id="rName" class="wide" maxlength="16" placeholder="First name"></label>
+    <label>Room code <input id="rRoom" class="wide" maxlength="40"></label>
+    <div class="row"><button id="rNewRoom">New room code</button><button id="rCopy">Copy code</button><button id="rInvite" title="Friends who open the link join this room and map">Copy invite link</button></div>
+    <div class="small" style="margin:10px 0 6px">Choose your bird</div>
+    <div id="rRoster" class="birds"></div>
+    <div class="msg" id="rPick"></div>
+    <label>Mode <select id="rMode" style="width:170px"><option value="race">Race</option><option value="travel">Travel (explore freely)</option></select></label>
+    <div class="small" style="margin:10px 0 6px">Place</div>
+    <div id="rCourses" class="courses"></div>
+    <div class="msg" id="rCourseInfo"></div>
+    <div class="row">
+      <button class="primary" id="rStart">Start race</button>
+      <button id="rJoin">Join room</button>
+      <button id="rLeave" disabled>Leave</button>
+    </div>
+    <label>Controls <select id="rControl" style="width:200px"><option value="all">Keyboard + eyes + flex</option><option value="kb">Keyboard only</option><option value="eyes">Eyes + flex (hands-free)</option></select></label>
+    <div id="rEyeOpts">
+      <div class="row"><button id="rEyeStart">Start eye tracking</button><button id="rEyeCal">Calibrate eyes</button></div>
+      <label>Eye steering sensitivity <input id="rEyeSens" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+    </div>
+    <div id="rRaceOpts">
+      <label>Laps <select id="rLaps" style="width:70px"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+      <label>Computer rivals (solo) <select id="rBots" style="width:70px"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+      <label>Keyboard boost (Space) <input id="rKeyBoost" type="checkbox" checked></label>
+      <label>Steering assist <input id="rAssist" type="checkbox" checked></label>
+    </div>
+    <div id="rTravelOpts" hidden>
+      <label>Foot tap takes a photo <input id="rTapPhoto" type="checkbox"></label>
+      <label>Hand gestures (optional, no training) <select id="rHand" style="width:150px"><option value="off">Off</option><option value="both">Steer + flap</option><option value="flap">Flap only</option></select></label>
+      <div class="row" id="rHandRow" hidden><button id="rHandNeutral">Set neutral (N)</button><button id="rHandStop">Stop hand camera</button></div>
+      <div class="msg" id="rHandMsg" hidden></div>
+      <label>Time of day (city maps) <select id="rTod" style="width:150px"><option value="noon">Noon</option><option value="morning">Morning</option><option value="golden">Golden hour</option><option value="dusk">Dusk</option><option value="night">Night</option><option value="cycle">Live cycle</option></select></label>
+      <label>Weather (city maps) <select id="rWeather" style="width:150px"><option value="clear">Clear</option><option value="overcast">Overcast</option><option value="rain">Rain</option><option value="fog">Fog</option></select></label>
+      <label>Bird size (city maps) <select id="rBirdSize" style="width:150px"><option value="0.35">Tiny</option><option value="0.55" selected>Small</option><option value="0.8">Medium</option><option value="1.2">Large</option></select></label>
+    </div>
+    <div class="row"><button id="rCalFlex">Calibrate flex in the game (F)</button></div>
+    <label>Sound <input id="rSound" type="checkbox" checked></label>
+    <label>Invert up/down <input id="rInvert" type="checkbox"></label>
+    <label>Graphics <select id="rQuality" style="width:90px"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label>
+    <div class="msg" id="rMsg">Press Start race to race computer birds, or join a room to race friends.</div>
+  </section>
+  <section class="panel" id="rMissionPanel" hidden>
+    <h2>Missions</h2>
+    <div id="rMissions" class="small" style="line-height:1.6"></div>
+    <div class="small">Press M to start or stop the first mission. Fly through the glowing rings.</div>
+  </section>
+  <section class="panel" id="rJournalPanel" hidden>
+    <h2>Travel journal</h2>
+    <div id="rJournal" class="small" style="line-height:1.6"></div>
+  </section>
+  <section class="panel">
+    <h2>How to play</h2>
+    <div class="small" style="line-height:1.7">
+      <b>Keyboard:</b> ← / → or A / D turn · ↑ / ↓ or W / S climb / dive · Space boost (race) or flap (travel) · B makes your bird call (hold for long calls, Shift / Ctrl change the pitch, or click the view)<br>
+      <b>Eyes:</b> look left or right of the centre to turn, above or below it to climb or dive. Look at the middle to fly straight.<br>
+      <b style="color:var(--stand)">Flex your calf:</b> harder flex = faster. In a race it boosts; in travel it flaps (relax to glide).<br>
+      C : change camera · H : hide the HUD · P : take a photo
+    </div>
+    <div class="small" id="rHelpRace" style="line-height:1.7;margin-top:8px">
+      Boosting drains stamina (the thin bar). Relax to refill it.<br>
+      <b>Rocket start:</b> hold a 45–75% flex when GO appears. Flexing too hard stalls you.<br>
+      Golden rings: updraft, extra speed and stamina.<br>
+      Dodge floating rocks, balloons, turbine blades and pillars. Storm clouds slow you down.<br>
+      R : back onto the course
+    </div>
+    <div class="small" id="rHelpTravel" style="line-height:1.7;margin-top:8px" hidden>
+      No timer, no rivals. Fly anywhere and find the hidden places (gold ◆ on the compass and map).<br>
+      Diving gains speed and climbing costs speed, like a real bird. Shimmering columns are warm rising air: circle in them to climb without flapping.<br>
+      R : back to the start
+    </div>
+  </section>
+</aside>
+<section>
+  <div class="panel race-wrap" id="rWrap"><canvas id="raceCanvas"></canvas><canvas id="raceHud"></canvas><button id="rFull">Fullscreen (G)</button><button id="rMenuBtn" class="eye-target" title="Menu (O)">&#9776; Menu</button>
+    <div id="rMenu" hidden><div class="rm-grid">
+      <button id="rmResume" class="primary">Resume</button><button id="rmExit">Exit fullscreen</button><button id="rmCam">Camera</button><button id="rmMission">Mission</button>
+      <button id="rmTod">Time of day</button><button id="rmWx">Weather</button><button id="rmEyeCal">Calibrate eyes</button><button id="rmCenter">Re-center gaze</button>
+      <button id="rmHand">Hand gestures</button><button id="rmFlex">Calibrate flex</button><button id="rmCall">Bird call</button><button id="rmPhoto">Photo</button>
+      <button id="rmSound">Sound</button><button id="rmHud">HUD</button><button id="rmAuto">Eye dwell</button><button id="rmNeutral">Hand neutral</button>
+    </div></div></div>
+</section>
+</main>
+
+<main id="tabEyes" class="tab" hidden>
+<aside>
+  <section class="panel">
+    <h2>1 · Start eye tracking</h2>
+    <div class="row">
+      <button class="primary" id="eyStart">Start camera</button>
+      <button id="eyStop" disabled>Stop</button>
+    </div>
+    <label>Show camera preview <input id="eyPreview" type="checkbox" checked></label>
+    <div class="msg" id="eyMsg">Uses your laptop webcam. The video is processed in this browser and never uploaded. The first start downloads the tracker and its face models (a few MB).</div>
+  </section>
+  <section class="panel">
+    <h2>2 · Calibrate</h2>
+    <div class="row">
+      <button class="primary" id="eyCalib" disabled>Calibrate (13 dots)</button>
+      <button id="eyClear">Clear saved calibration</button>
+    </div>
+    <div class="msg">Sit the way you normally will, keep your head fairly still and light your face from the front. Look straight at each glowing dot and tap your foot (or click the dot) 3 times, and keep looking at it for a moment after each tap. A bright screen and a lamp in front of your face both help. Calibration is saved for next time.</div>
+    <div class="small" id="eyAcc" style="margin-top:6px"></div>
+    <div class="small" id="eyQuality" style="margin-top:4px"></div>
+  </section>
+  <section class="panel">
+    <h2>3 · Control</h2>
+    <label>Show gaze cursor <input id="eyCursorOn" type="checkbox" checked></label>
+    <label>Foot tap clicks where I look <input id="eyClick" type="checkbox" checked></label>
+    <label>Region select (look at an area, not a point) <input id="eyRegion" type="checkbox" checked></label>
+    <label>Region size <input id="eyRegionScale" type="range" min="0.6" max="2" step="0.1" value="1"></label>
+    <label>Dwell to click (hold your gaze) <input id="eyDwell" type="checkbox"></label>
+    <label>Dwell time (ms) <input id="eyDwellMs" type="number" value="1000" min="400" max="3000" step="100"></label>
+    <label>Calibrate without taps (dots advance by themselves) <input id="eyAuto" type="checkbox"></label>
+    <label>Snap to nearest button (when region select is off) <input id="eySnap" type="checkbox" checked></label>
+    <label>Snap distance (px) <input id="eySnapR" type="number" value="90" min="0"></label>
+    <label>Smoothing (higher = steadier, slower) <input id="eySmooth" type="number" value="4" min="1" max="20"></label>
+    <label>Learn from my clicks (gets more accurate) <input id="eyLearn" type="checkbox" checked></label>
+    <label>K key also clicks (testing) <input id="eyKey" type="checkbox"></label>
+    <div class="msg">Eye clicks work on every tab except Tap Brawl, where a foot tap attacks. A web page can't move the Windows mouse pointer, so eye control works inside this page only.</div>
+    <div class="msg" id="eyTap"></div>
+  </section>
+</aside>
+<section>
+  <div class="panel"><div class="stats">
+    <div class="stat"><b id="eyXY">–</b><span>Gaze position (px)</span></div>
+    <div class="stat"><b id="eyFps">–</b><span>Gaze updates per second</span></div>
+    <div class="stat"><b id="eyErr">–</b><span>Calibration error</span></div>
+    <div class="stat"><b id="eyTapS">–</b><span>Foot tap</span></div>
+  </div></div>
+  <div class="panel">
+    <h2>Target practice</h2>
+    <div class="row"><button class="primary" id="eyTest">Start target test</button><button id="eyArenaFull" data-fs="eyArena">Fullscreen practice</button><span class="small" id="eyTestInfo" style="align-self:center">10 targets. Look at each one and tap your foot to click it.</span></div>
+    <div id="eyArena" class="eye-arena"><div class="small">Targets appear here.</div></div>
+    <div class="tw" id="eyResults"></div>
+  </div>
+</section>
+</main>
+<div id="eyCursor" class="gaze-cursor" hidden></div>
+<div id="eyCalibLayer" class="calib-layer" hidden><div id="eyCalibText" class="calib-text"></div></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ---------------- DSP primitives ---------------- */
+class Biquad {
+  constructor(c){ Object.assign(this,c); this.z1=0; this.z2=0; }
+  process(x){ const y=this.b0*x+this.z1; this.z1=this.b1*x-this.a1*y+this.z2; this.z2=this.b2*x-this.a2*y; return y; }
+}
+function biquad(type,f0,fs,Q){ // RBJ audio-EQ cookbook
+  const w=2*Math.PI*f0/fs, c=Math.cos(w), al=Math.sin(w)/(2*Q);
+  let b0,b1,b2;
+  if(type==='lp'){ b0=(1-c)/2; b1=1-c; b2=b0; }
+  else if(type==='hp'){ b0=(1+c)/2; b1=-(1+c); b2=b0; }
+  else { b0=1; b1=-2*c; b2=1; } // notch
+  const a0=1+al;
+  return new Biquad({b0:b0/a0,b1:b1/a0,b2:b2/a0,a1:-2*c/a0,a2:(1-al)/a0});
+}
+function fft(re,im){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit;
+    if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){
+    const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang), h=len>>1;
+    for(let i=0;i<n;i+=len){ let cr=1,ci=0;
+      for(let k=0;k<h;k++){ const a=i+k,b=a+h;
+        const tr=re[b]*cr-im[b]*ci, ti=re[b]*ci+im[b]*cr;
+        re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti;
+        const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } }
+}
+let gSpare=null;
+function gauss(){ if(gSpare!==null){const s=gSpare;gSpare=null;return s;}
+  let u,v,s; do{u=Math.random()*2-1;v=Math.random()*2-1;s=u*u+v*v;}while(s>=1||s===0);
+  const m=Math.sqrt(-2*Math.log(s)/s); gSpare=v*m; return u*m; }
+
+/* ---------------- State ---------------- */
+const cfg={fs:2000,mid:2048,lo:20,hi:450,notch:60,N:512};
+const RING=1<<15, RMASK=RING-1;
+let ring=new Float32Array(RING), wIdx=0, sinceHop=0, chain=[], hann=null;
+let lastF=null, dispPSD=null, sigScale=50;
+let dataset=[], segCounter=0, recording=null;
+let model=null, pHist=[], fHist=[], history=[], lastFftX=null;
+const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+let sampleCount=0;
+const cfgKey=()=>`${cfg.fs}|${cfg.lo}|${cfg.hi}|${cfg.notch}|${cfg.N}`;
+
+function bandEdges(){ return [cfg.lo,...[50,100,200].filter(e=>e>cfg.lo&&e<cfg.hi),cfg.hi]; }
+function featureNames(){
+  const e=bandEdges(), bn=[]; for(let i=0;i<e.length-1;i++) bn.push(`${e[i]}-${e[i+1]}Hz`);
+  return ['ln RMS','ln MAV','ln WL','ZC rate','Mean freq','Median freq',...bn.map(b=>'ln P '+b),...bn.map(b=>'rel P '+b)];
+}
+
+function makeChain(){ // 4th-order Butterworth high-pass + low-pass, then mains notch + harmonics
+  const {fs,lo,hi,notch}=cfg;
+  const c=[biquad('hp',lo,fs,0.5412),biquad('hp',lo,fs,1.3065),biquad('lp',hi,fs,0.5412),biquad('lp',hi,fs,1.3065)];
+  if(notch) for(let h=notch;h<fs/2&&h<=hi+notch;h+=notch) c.push(biquad('notch',h,fs,30));
+  return c;
+}
+function applyConfig(){
+  const fs=+$('fs').value, lo=+$('lo').value, hi=+$('hi').value, N=+$('N').value, notch=+$('notch').value, mid=+$('mid').value;
+  const msg=$('cfgMsg'); msg.classList.remove('err');
+  if(!(fs>=200)||!(lo>0)||!(hi>lo)||hi>=0.45*fs){ msg.textContent=`Invalid: need 0 < low < high < 0.45 × sample rate (${(0.45*fs)|0} Hz).`; msg.classList.add('err'); return false; }
+  Object.assign(cfg,{fs,lo,hi,N,notch,mid});
+  chain=makeChain();
+  hann=new Float64Array(N); for(let i=0;i<N;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(N-1));
+  ring.fill(0); wIdx=0; sinceHop=0; dispPSD=null; lastF=null; pHist=[]; fHist=[];
+  buildDemoFilters(); fillFftSelect();
+  const mixed=dataset.some(d=>d.key!==cfgKey());
+  msg.textContent=`Window = ${(N/fs*1000).toFixed(0)} ms, hop = ${(N/2/fs*1000).toFixed(0)} ms, FFT bin = ${(fs/N).toFixed(1)} Hz.`+
+    (mixed?'\n⚠ Some recorded data used different settings — clear it or switch back before training.':'');
+  return true;
+}
+
+/* ---------------- Per-sample pipeline ---------------- */
+function processSample(raw){
+  let y=raw-cfg.mid;
+  for(let i=0;i<chain.length;i++) y=chain[i].process(y);
+  ring[wIdx&RMASK]=y; wIdx++; sampleCount++;
+  ENV.acc+=y*y; if(++ENV.n>=64){ envBlock(Math.log(Math.sqrt(ENV.acc/64)+1e-6)); ENV.acc=0; ENV.n=0; }
+  if(SH.client) SH.out.push(raw<0?0:raw>65535?65535:raw|0);
+  if(++sinceHop>=cfg.N/2 && wIdx>=cfg.N+cfg.fs/2){ sinceHop=0; onWindow(); } // skip first 0.5 s (filter settling)
+}
+
+function extract(x){
+  const N=x.length, fs=cfg.fs; let s2=0,sa=0,wl=0,zc=0;
+  for(let i=0;i<N;i++){ const v=x[i]; s2+=v*v; sa+=Math.abs(v); }
+  const rms=Math.sqrt(s2/N), mav=sa/N, thr=0.05*rms;
+  for(let i=1;i<N;i++){ const d=Math.abs(x[i]-x[i-1]); wl+=d; if((x[i]>0)!==(x[i-1]>0)&&d>=thr) zc++; }
+  const re=new Float64Array(N), im=new Float64Array(N);
+  for(let i=0;i<N;i++) re[i]=x[i]*hann[i];
+  fft(re,im);
+  const half=N/2, df=fs/N, psd=new Float64Array(half+1);
+  for(let k=0;k<=half;k++) psd[k]=(re[k]*re[k]+im[k]*im[k])/N;
+  const e=bandEdges(), bp=new Array(e.length-1).fill(0);
+  let tot=0,fsum=0; const k0=Math.ceil(cfg.lo/df), k1=Math.min(half,Math.floor(cfg.hi/df));
+  for(let k=k0;k<=k1;k++){ const f=k*df, p=psd[k]; tot+=p; fsum+=f*p;
+    for(let j=0;j<bp.length;j++) if(f>=e[j]&&(f<e[j+1]||(j===bp.length-1&&f<=e[j+1]))){ bp[j]+=p; break; } }
+  const mnf=tot>0?fsum/tot:0; let mdf=0,c=0;
+  for(let k=k0;k<=k1;k++){ c+=psd[k]; if(c>=tot/2){ mdf=k*df; break; } }
+  const L=v=>Math.log(v+1e-9);
+  const vec=[L(rms),L(mav),L(wl/N),zc*fs/N,mnf,mdf,...bp.map(L),...bp.map(b=>b/(tot+1e-12))];
+  return {vec,rms,mnf,mdf,psd};
+}
+
+function onWindow(){
+  const N=cfg.N, x=new Float32Array(N), s=wIdx-N;
+  for(let i=0;i<N;i++) x[i]=ring[(s+i)&RMASK];
+  const F=extract(x); lastF=F;
+  const t=performance.now()/1000;
+
+  if(recording){
+    const el=t-recording.start;
+    if(el>=recording.skip) dataset.push({seg:recording.seg,label:recording.label,f:F.vec,key:cfgKey()});
+    if(el>=recording.skip+recording.dur) stopRecording();
+  }
+  let p=null;
+  if(model&&model.key===cfgKey()){
+    const k=Math.max(1,+$('smooth').value|0);
+    p=predict(model,F.vec); pHist.push(p); while(pHist.length>k) pHist.shift();
+    if(model.fftRule){ const s=fftScore(model.fftRule,F.vec); lastFftX=s.x; fHist.push(s.p); while(fHist.length>k) fHist.shift(); }
+    PT.onWindow(t);
+  }
+  history.push({t,rms:F.rms,p:$('predOn').checked?p:null});
+  if(p!=null) trackWindow(SH.id,$('shName').value.trim()||'You',avg(pHist),F);
+  fatWindow(SH.id,F);
+  tapOnWindow(F,t);
+  flexOnWindow(F,t);
+  while(history.length&&history[0].t<t-60) history.shift();
+}
+
+/* ---------------- Serial (Web Serial API) ---------------- */
+let port=null, reader=null, readClosed=null, keepReading=false;
+async function connect(){
+  if(!('serial' in navigator)){ srcMsg('Web Serial is not available. Use Chrome or Edge on desktop, opened from a file:// or https:// page.',true); return; }
+  try{ port=await navigator.serial.requestPort(); await port.open({baudRate:+$('baud').value||921600,bufferSize:1<<16}); }
+  catch(e){ srcMsg('Could not open port: '+e.message,true); port=null; return; }
+  stopDemo(); keepReading=true; setConn('ESP32 connected',true);
+  $('btnConnect').disabled=true; $('btnDisconnect').disabled=false;
+  srcMsg('Streaming. Check that the samples/s pill matches your sample rate.');
+  const dec=new TextDecoderStream();
+  readClosed=port.readable.pipeTo(dec.writable).catch(()=>{});
+  reader=dec.readable.getReader();
+  let buf='';
+  try{
+    while(keepReading){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=value; const lines=buf.split('\n'); buf=lines.pop();
+      for(const ln of lines) for(const tok of ln.split(',')){ const v=parseInt(tok,10); if(!Number.isNaN(v)) processSample(v); }
+      if(buf.length>1000) buf='';
+    }
+  }catch(e){ srcMsg('Serial error: '+e.message,true); }
+  finally{ try{reader.releaseLock();}catch{} }
+  if(keepReading) disconnect(); // device unplugged
+}
+async function disconnect(){
+  keepReading=false;
+  try{ await reader?.cancel(); }catch{}
+  await readClosed;
+  try{ await port?.close(); }catch{}
+  port=null; setConn('Disconnected',false);
+  $('btnConnect').disabled=false; $('btnDisconnect').disabled=true;
+}
+function setConn(t,on){ const p=$('connPill'); p.textContent=t; p.classList.toggle('on',on); }
+function srcMsg(t,err){ const m=$('srcMsg'); m.textContent=t; m.classList.toggle('err',!!err); }
+
+/* ---------------- Demo signal ---------------- */
+let demoTimer=null, demoState='standing', demoT=0, demoFilt=[];
+function buildDemoFilters(){ demoFilt=[biquad('hp',60,cfg.fs,0.707),biquad('lp',Math.min(180,cfg.fs*0.4),cfg.fs,0.707)]; }
+function startDemo(){
+  if(port) return;
+  buildDemoFilters(); let last=performance.now();
+  demoTimer=setInterval(()=>{
+    const now=performance.now(), n=Math.min(cfg.fs, Math.round((now-last)/1000*cfg.fs)); last+=n/cfg.fs*1000;
+    for(let i=0;i<n;i++){
+      demoT+=1/cfg.fs; let e=gauss(); for(const f of demoFilt) e=f.process(e);
+      let amp=8;
+      if(demoState==='standing') amp=110*(1+0.4*Math.sin(2*Math.PI*0.25*demoT));
+      else if(demoState==='raise') amp=demoRaise();
+      else if(demoState==='flex'){ const L=demoFlexL(); amp=8+260*L*(1+0.12*Math.sin(2*Math.PI*0.7*demoT)); }
+      else if(demoState==='tapping'){ const ph=(demoT%0.36)/0.36; if(ph<0.35) amp+=160*Math.sin(Math.PI*ph/0.35); } // heel-tap bursts ~2.8/s
+      const v=cfg.mid+e*amp+25*Math.sin(2*Math.PI*60*demoT)+3*gauss()+40*Math.sin(2*Math.PI*0.1*demoT);
+      processSample(Math.max(0,Math.min(4095,Math.round(v))));
+    }
+  },20);
+  $('btnDemo').textContent='Stop demo signal'; $('demoCtl').hidden=false; setConn('Demo signal',true); setDemoState(demoState);
+}
+function stopDemo(){ if(!demoTimer) return; clearInterval(demoTimer); demoTimer=null;
+  $('btnDemo').textContent='Start demo signal'; $('demoCtl').hidden=true; if(!port) setConn('Disconnected',false); }
+let demoStateT=0, demoTune=-1;
+function demoRaise(){ // simulated sustained calf raise: amplitude rises and the spectrum shifts ~45% lower over 60 s
+  const f=Math.min(1,(demoT-demoStateT)/60);
+  if(demoT-demoTune>0.25){ demoTune=demoT; const sh=1-0.45*f, h=biquad('hp',60*sh,cfg.fs,0.707), l=biquad('lp',180*sh,cfg.fs,0.707);
+    for(const [d,n] of [[demoFilt[0],h],[demoFilt[1],l]]) Object.assign(d,{b0:n.b0,b1:n.b1,b2:n.b2,a1:n.a1,a2:n.a2}); }
+  return 150*(1+0.6*f);
+}
+let demoFlexCur=0.5;
+function demoFlexL(){ demoFlexCur+=((+$('demoFlex').value/100)-demoFlexCur)*0.004; return demoFlexCur; } // ~0.25 s ramp, like a real muscle
+function setDemoState(s){ if(s!==demoState){ demoStateT=demoT; if(demoState==='raise') buildDemoFilters(); } demoState=s; $('demoRaise').classList.toggle('active',s==='raise'); $('demoStand').classList.toggle('active',s==='standing'); $('demoLie').classList.toggle('active',s==='lying'); $('demoTap').classList.toggle('active',s==='tapping'); $('demoFlexBtn').classList.toggle('active',s==='flex'); }
+
+/* ---------------- Recording ---------------- */
+function startRecording(label){
+  if(!port&&!demoTimer){ alert('Connect the ESP32 or start the demo signal first.'); return; }
+  if(recording) stopRecording();
+  recording={label,seg:++segCounter,start:performance.now()/1000,dur:Math.max(1,+$('recDur').value),skip:Math.max(0,+$('recSkip').value)};
+  $('recStand').classList.toggle('active',label==='standing'); $('recLie').classList.toggle('active',label==='lying'); $('recStop').disabled=false;
+}
+function stopRecording(){ if(recording) persistData(); recording=null; $('recStand').classList.remove('active'); $('recLie').classList.remove('active'); $('recStop').disabled=true; }
+function updateCounts(){
+  const hopS=cfg.N/2/cfg.fs, c={standing:0,lying:0}, segs={standing:new Set(),lying:new Set()};
+  for(const d of dataset){ c[d.label]++; segs[d.label].add(d.seg); }
+  $('countInfo').innerHTML=`<span style="color:var(--stand)">Standing: ${c.standing} windows · ${segs.standing.size} takes · ~${(c.standing*hopS).toFixed(0)} s</span><br>`+
+    `<span style="color:var(--lie)">Lying: ${c.lying} windows · ${segs.lying.size} takes · ~${(c.lying*hopS).toFixed(0)} s</span>`;
+  $('dataPill').textContent=`${dataset.length} windows`;
+  if(recording){ const el=performance.now()/1000-recording.start;
+    $('recInfo').textContent= el<recording.skip ? `Get into position… ${(recording.skip-el).toFixed(1)} s` : `Recording ${recording.label.toUpperCase()} (take ${recording.seg}) — ${(el-recording.skip).toFixed(1)} / ${recording.dur} s`;
+  } else $('recInfo').textContent='Not recording';
+}
+function exportCSV(){
+  if(!dataset.length){ alert('No data yet.'); return; }
+  const lines=[`# fs=${cfg.fs};lo=${cfg.lo};hi=${cfg.hi};notch=${cfg.notch};N=${cfg.N}`,['take','label',...featureNames()].join(',')];
+  for(const d of dataset) lines.push([d.seg,d.label,...d.f.map(v=>+v.toPrecision(6))].join(','));
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download=`emg_posture_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+function importCSV(text){
+  const rows=text.split(/\r?\n/).filter(r=>r&&!r.startsWith('#'));
+  const header=rows.shift().split(','), nf=featureNames().length;
+  if(header.length-2!==nf){ alert(`This file has ${header.length-2} features; current settings produce ${nf}. Match the settings (see the # line in the file) and try again.`); return; }
+  const off=segCounter; let maxSeg=0, n=0;
+  for(const r of rows){ const c=r.split(','); const s=+c[0]; maxSeg=Math.max(maxSeg,s);
+    dataset.push({seg:off+s,label:c[1],f:c.slice(2).map(Number),key:cfgKey()}); n++; }
+  segCounter=off+maxSeg; persistData(); $('trainMsg').textContent=`Imported ${n} windows.`;
+}
+
+/* ---------------- Logistic regression ---------------- */
+function fitLR(items,pos='standing'){
+  const n=items.length, d=items[0].f.length, mu=new Array(d).fill(0), sd=new Array(d).fill(0);
+  for(const it of items) for(let j=0;j<d;j++) mu[j]+=it.f[j]/n;
+  for(const it of items) for(let j=0;j<d;j++) sd[j]+=(it.f[j]-mu[j])**2/n;
+  for(let j=0;j<d;j++) sd[j]=Math.sqrt(sd[j])||1;
+  const Z=items.map(it=>it.f.map((v,j)=>(v-mu[j])/sd[j])), y=items.map(it=>it.label===pos?1:0);
+  const nPos=y.reduce((a,b)=>a+b,0), wPos=n/(2*nPos), wNeg=n/(2*(n-nPos)); // class balancing
+  const w=new Array(d).fill(0); let b=0; const lr=0.3, lam=1e-2;
+  for(let ep=0;ep<1500;ep++){
+    const g=new Array(d).fill(0); let gb=0;
+    for(let i=0;i<n;i++){ let z=b; const zi=Z[i]; for(let j=0;j<d;j++) z+=w[j]*zi[j];
+      const e=(1/(1+Math.exp(-z))-y[i])*(y[i]?wPos:wNeg); for(let j=0;j<d;j++) g[j]+=e*zi[j]; gb+=e; }
+    for(let j=0;j<d;j++) w[j]-=lr*(g[j]/n+lam*w[j]); b-=lr*gb/n;
+  }
+  return {mu,sd,w,b,key:cfgKey()};
+}
+/* ---------------- FFT rule (single FFT feature + threshold, no ML) ---------------- */
+function fftCandidates(){
+  const e=bandEdges(), nb=e.length-1, c=[];
+  c.push({id:'total',name:`Total FFT power ${cfg.lo}–${cfg.hi} Hz (ln)`,get:v=>{ let s=0; for(let j=0;j<nb;j++) s+=Math.exp(v[6+j]); return Math.log(s+1e-12); }});
+  c.push({id:'mnf',name:'Mean frequency (Hz)',get:v=>v[4]});
+  c.push({id:'mdf',name:'Median frequency (Hz)',get:v=>v[5]});
+  for(let j=0;j<nb;j++) c.push({id:'bp'+j,name:`FFT power ${e[j]}–${e[j+1]} Hz (ln)`,get:v=>v[6+j]});
+  for(let j=0;j<nb;j++) c.push({id:'rel'+j,name:`Relative power ${e[j]}–${e[j+1]} Hz`,get:v=>v[6+nb+j]});
+  return c;
+}
+let candCache={key:null,list:null};
+function cands(){ if(candCache.key!==cfgKey()) candCache={key:cfgKey(),list:fftCandidates()}; return candCache.list; }
+function fillFftSelect(){
+  const sel=$('fftFeat'), cur=sel.value||'auto';
+  sel.innerHTML='<option value="auto">Best feature (auto)</option>'+cands().map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  sel.value=[...sel.options].some(o=>o.value===cur)?cur:'auto';
+}
+function fitThreshold(items,c,pos='standing'){
+  const xs=items.map(d=>({x:c.get(d.f),y:d.label===pos?1:0})).sort((a,b)=>a.x-b.x);
+  const P=xs.filter(o=>o.y).length, N=xs.length-P; if(!P||!N) return null;
+  let best=null, pb=0, nbw=0;
+  for(let i=0;i<xs.length-1;i++){
+    if(xs[i].y) pb++; else nbw++;
+    if(xs[i].x===xs[i+1].x) continue;
+    const thr=(xs[i].x+xs[i+1].x)/2;
+    const up=((P-pb)/P+nbw/N)/2, down=(pb/P+(N-nbw)/N)/2; // balanced accuracy, standing above / below thr
+    if(!best||up>best.bacc) best={bacc:up,thr,dir:1};
+    if(down>best.bacc) best={bacc:down,thr,dir:-1};
+  }
+  if(!best) return null;
+  const m=xs.reduce((s,o)=>s+o.x,0)/xs.length, sd=Math.sqrt(xs.reduce((s,o)=>s+(o.x-m)**2,0)/xs.length)||1;
+  return {...best,scale:sd/4,feat:c.id,name:c.name};
+}
+function fitFFTRule(items,featId,pos='standing'){
+  let best=null;
+  for(const c of cands()){ if(featId&&featId!=='auto'&&c.id!==featId) continue;
+    const r=fitThreshold(items,c,pos); if(r&&(!best||r.bacc>best.bacc)) best=r; }
+  return best;
+}
+function fftScore(rule,vec){
+  const c=cands().find(c=>c.id===rule.feat); const x=c.get(vec);
+  return {x,p:1/(1+Math.exp(-rule.dir*(x-rule.thr)/rule.scale))};
+}
+function evalRule(rule,items,pos='standing'){ let ok=0; for(const it of items) if((fftScore(rule,it.f).p>=0.5)===(it.label===pos)) ok++; return ok/Math.max(1,items.length); }
+
+function predict(m,f){ let z=m.b; for(let j=0;j<f.length;j++) z+=m.w[j]*(f[j]-m.mu[j])/m.sd[j]; return 1/(1+Math.exp(-z)); }
+function evaluate(m,items,pos='standing'){ const cm={ss:0,sl:0,ls:0,ll:0};
+  for(const it of items){ const p=predict(m,it.f)>=0.5?'s':'l'; cm[(it.label===pos?'s':'l')+p]++; }
+  return {cm,acc:(cm.ss+cm.ll)/Math.max(1,items.length)}; }
+
+function train(){
+  const msg=$('trainMsg'); msg.classList.remove('err'); $('trainTable').innerHTML='';
+  const items=dataset.filter(d=>d.key===cfgKey());
+  if(items.length<dataset.length) msg.textContent=`Note: ignoring ${dataset.length-items.length} windows recorded with other settings.\n`;
+  const nS=items.filter(d=>d.label==='standing').length, nL=items.length-nS;
+  if(nS<10||nL<10){ msg.textContent+='Need at least 10 windows of each posture.'; msg.classList.add('err'); return; }
+  // hold out the last 25% of every take (time-contiguous, so overlapping windows don't leak)
+  const bySeg={}; for(const d of items)(bySeg[d.seg]??=[]).push(d);
+  const tr=[],te=[];
+  for(const arr of Object.values(bySeg)){ const cut=Math.floor(arr.length*0.75);
+    if(arr.length<8){ tr.push(...arr); continue; }
+    tr.push(...arr.slice(0,cut-1)); te.push(...arr.slice(cut)); }
+  let report='', heldOut=null, fftHeldOut=null;
+  const hasBoth=a=>a.some(d=>d.label==='standing')&&a.some(d=>d.label==='lying');
+  if(hasBoth(tr)&&hasBoth(te)){
+    const m=fitLR(tr), r=evaluate(m,te), rt=evaluate(m,tr); heldOut=r.acc;
+    report+=`Held-out accuracy: ${(r.acc*100).toFixed(1)}%  (train ${(rt.acc*100).toFixed(1)}%, ${te.length} test windows)\n`;
+    report+=`Confusion — actual standing: ${r.cm.ss} ✓ / ${r.cm.sl} ✗   actual lying: ${r.cm.ll} ✓ / ${r.cm.ls} ✗\n`;
+    const fr=fitFFTRule(tr,$('fftFeat').value);
+    if(fr){ fftHeldOut=evalRule(fr,te); report+=`FFT rule on the same held-out windows: ${(fftHeldOut*100).toFixed(1)}%  (${fr.name})\n`; }
+  } else report+='Not enough data per take for a held-out test; trained on everything.\n';
+  model=fitLR(items); pHist=[]; fHist=[];
+  Object.assign(model,{type:'emg-posture-logreg',version:2,trained:new Date().toISOString(),cfg:{...cfg},
+    features:featureNames(),heldOutAcc:heldOut,nStanding:nS,nLying:nL,takes:Object.keys(bySeg).length,
+    fftRule:fitFFTRule(items,$('fftFeat').value),fftHeldOutAcc:fftHeldOut});
+  persistModel();
+  report+='Final model trained on all data and auto-saved in this browser. Use “Save model” to keep a file copy.';
+  msg.textContent+=report;
+  // feature table: class means + weight
+  const names=featureNames(), mean=(lab,j)=>{ const a=items.filter(d=>d.label===lab); return a.reduce((s,d)=>s+d.f[j],0)/a.length; };
+  const order=names.map((_,j)=>j).sort((a,b)=>Math.abs(model.w[b])-Math.abs(model.w[a]));
+  let h='<table><tr><th style="text-align:left">Feature</th><th>Stand</th><th>Lie</th><th>Weight</th></tr>';
+  for(const j of order) h+=`<tr><td style="text-align:left">${names[j]}</td><td>${mean('standing',j).toFixed(2)}</td><td>${mean('lying',j).toFixed(2)}</td><td>${model.w[j].toFixed(2)}</td></tr>`;
+  $('trainTable').innerHTML=h+'</table>';
+  $('predOn').checked=true;
+}
+
+/* ---------------- Model & data persistence ---------------- */
+const LS_MODEL='emgPosture.model', LS_DATA='emgPosture.dataset';
+function persistModel(){ try{ localStorage.setItem(LS_MODEL,JSON.stringify(model)); }catch{} showModelInfo(); }
+function persistData(){ try{ localStorage.setItem(LS_DATA,JSON.stringify({segCounter,dataset})); }catch{} }
+function showModelInfo(){
+  $('btnSaveModel').disabled=!model;
+  if(!model){ $('modelInfo').textContent='No model loaded'; return; }
+  const c=model.cfg, acc=model.heldOutAcc==null?'n/a':(model.heldOutAcc*100).toFixed(1)+'%';
+  $('modelInfo').textContent=`Model from ${new Date(model.trained).toLocaleString()} · held-out acc ${acc} · `+
+    `${model.nStanding}/${model.nLying} windows · ${c.fs} Hz, ${c.lo}-${c.hi} Hz, N=${c.N}`;
+}
+function saveModelFile(){
+  if(!model) return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(model,null,2)],{type:'application/json'}));
+  a.download=`emg_posture_model_${model.trained.slice(0,19).replace(/[:T]/g,'-')}.json`; a.click(); URL.revokeObjectURL(a.href);
+}
+// Loading a model also restores the exact processing settings it was trained with,
+// so its features are computed the same way.
+function useModel(m,quiet){
+  if(!m||m.type!=='emg-posture-logreg'||!Array.isArray(m.w)||!m.cfg) throw new Error('Not an EMG posture model file.');
+  for(const k of ['fs','mid','lo','hi','notch','N']) $(k).value=m.cfg[k];
+  if(!applyConfig()) throw new Error('Model settings are invalid.');
+  if(featureNames().length!==m.w.length) throw new Error('Feature count mismatch.');
+  if(m.fftRule&&!cands().some(c=>c.id===m.fftRule.feat)) m.fftRule=null;
+  m.key=cfgKey(); model=m; pHist=[]; fHist=[]; showModelInfo();
+  if(!quiet){ $('predOn').checked=true; persistModel(); $('trainMsg').textContent='Model loaded — settings switched to match it. Live prediction is on.'; }
+}
+function restoreFromStorage(){
+  try{ const d=JSON.parse(localStorage.getItem(LS_DATA)||'null');
+    if(d&&Array.isArray(d.dataset)){ dataset=d.dataset; segCounter=d.segCounter||0; } }catch{}
+  try{ const m=JSON.parse(localStorage.getItem(LS_MODEL)||'null');
+    if(m){ useModel(m,true); $('predOn').checked=true; $('trainMsg').textContent='Restored your last model from this browser — no retraining needed.'; } }catch{}
+}
+
+/* ---------------- Drawing ---------------- */
+function fit(c){ const r=c.getBoundingClientRect(), d=devicePixelRatio||1, w=Math.round(r.width*d), h=Math.round(r.height*d);
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; } const g=c.getContext('2d'); g.setTransform(d,0,0,d,0,0); return [g,r.width,r.height]; }
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function drawSignal(){
+  const [g,W,H]=fit($('cSig')); g.clearRect(0,0,W,H);
+  const n=Math.min(wIdx,2*cfg.fs); if(n<2) return;
+  const s=wIdx-n; let mx=0; for(let i=0;i<n;i++) mx=Math.max(mx,Math.abs(ring[(s+i)&RMASK]));
+  sigScale=Math.max(sigScale*0.98,mx,1);
+  g.strokeStyle='#e3dfce'; g.beginPath(); g.moveTo(0,H/2); g.lineTo(W,H/2); g.stroke();
+  g.strokeStyle=css('--accent'); g.lineWidth=1; g.beginPath();
+  const spp=n/W;
+  for(let px=0;px<W;px++){ let lo=Infinity,hi=-Infinity; const a=Math.floor(px*spp), b=Math.max(a+1,Math.floor((px+1)*spp));
+    for(let i=a;i<b&&i<n;i++){ const v=ring[(s+i)&RMASK]; if(v<lo)lo=v; if(v>hi)hi=v; }
+    const y1=H/2-hi/sigScale*(H/2-6), y2=H/2-lo/sigScale*(H/2-6); g.moveTo(px+.5,y1); g.lineTo(px+.5,Math.max(y2,y1+1)); }
+  g.stroke();
+  g.fillStyle=css('--muted'); g.font='11px system-ui'; g.fillText(`±${sigScale.toFixed(0)} counts`,6,14);
+}
+
+function drawSpectrum(){
+  const [g,W,H]=fit($('cSpec')); g.clearRect(0,0,W,H); if(!lastF) return;
+  const psd=lastF.psd, n=psd.length;
+  if(!dispPSD||dispPSD.length!==n) dispPSD=Float64Array.from(psd);
+  else for(let k=0;k<n;k++) dispPSD[k]=0.8*dispPSD[k]+0.2*psd[k];
+  const db=Array.from(dispPSD,v=>10*Math.log10(v+1e-6));
+  const top=Math.max(...db)+3, bot=top-60, L=34, B=18, fny=cfg.fs/2;
+  const X=f=>L+f/fny*(W-L-6), Y=v=>(H-B)-(Math.max(v,bot)-bot)/(top-bot)*(H-B-6);
+  g.fillStyle='rgba(45,122,83,.09)'; g.fillRect(X(cfg.lo),0,X(cfg.hi)-X(cfg.lo),H-B);
+  g.font='11px system-ui'; g.fillStyle=css('--muted'); g.strokeStyle='#e5e1d1';
+  const step=fny>600?200:100;
+  for(let f=0;f<=fny;f+=step){ g.beginPath(); g.moveTo(X(f),0); g.lineTo(X(f),H-B); g.stroke(); g.fillText(f+'',X(f)-8,H-4); }
+  for(let v=Math.ceil(bot/20)*20;v<=top;v+=20){ g.beginPath(); g.moveTo(L,Y(v)); g.lineTo(W,Y(v)); g.stroke(); g.fillText(v+'',2,Y(v)+4); }
+  g.strokeStyle=css('--accent'); g.lineWidth=1.5; g.beginPath();
+  for(let k=0;k<n;k++){ const x=X(k*cfg.fs/cfg.N), y=Y(db[k]); k?g.lineTo(x,y):g.moveTo(x,y); } g.stroke();
+  g.fillStyle=css('--muted'); g.fillText('dB',2,12); g.fillText('Hz',W-18,H-4);
+  g.strokeStyle=css('--lie'); g.setLineDash([4,4]); g.beginPath(); g.moveTo(X(lastF.mdf),0); g.lineTo(X(lastF.mdf),H-B); g.stroke(); g.setLineDash([]);
+}
+
+function drawHistory(){
+  const [g,W,H]=fit($('cHist')); g.clearRect(0,0,W,H); if(history.length<2) return;
+  const tNow=history[history.length-1].t, X=t=>W-(tNow-t)/60*W;
+  const lr=history.map(h=>Math.log10(h.rms+1e-3)); const mn=Math.min(...lr)-0.1, mx=Math.max(...lr)+0.1;
+  g.strokeStyle=css('--accent'); g.lineWidth=1.5; g.beginPath();
+  history.forEach((h,i)=>{ const x=X(h.t), y=H-4-(lr[i]-mn)/(mx-mn)*(H-8); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke();
+  g.strokeStyle='#cdc8b4'; g.setLineDash([3,4]); g.beginPath(); g.moveTo(0,H/2); g.lineTo(W,H/2); g.stroke(); g.setLineDash([]);
+  g.strokeStyle=css('--stand'); g.beginPath(); let on=false;
+  for(const h of history){ if(h.p===null){ on=false; continue; } const x=X(h.t), y=H-4-h.p*(H-8); on?g.lineTo(x,y):g.moveTo(x,y); on=true; } g.stroke();
+}
+
+function updateState(){
+  if(lastF){ $('sRms').textContent=lastF.rms.toFixed(1); $('sMnf').textContent=lastF.mnf.toFixed(0); $('sMdf').textContent=lastF.mdf.toFixed(0); }
+  const el=$('stateLabel');
+  if(model&&$('predOn').checked&&pHist.length){
+    if(model.key!==cfgKey()){ el.textContent='Settings changed'; el.style.color=css('--muted'); return; }
+    const p=pHist.reduce((a,b)=>a+b,0)/pHist.length, st=p>=0.5;
+    el.textContent=st?'STANDING':'LYING'; el.style.color=st?css('--stand'):css('--lie');
+    $('probBar').style.width=(p*100).toFixed(0)+'%'; $('probBar').style.background=st?css('--stand'):css('--lie');
+    $('probTxt').textContent=`P(standing) = ${p.toFixed(2)}`;
+  } else { el.textContent='—'; el.style.color=css('--text'); $('probTxt').textContent=model?'Live prediction off':'Train a model first'; }
+}
+
+/* ---------------- Guided test engine (posture tab and foot-tap tab) ---------------- */
+function say(on,txt){ if(!on) return; try{ speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(txt)); }catch{} }
+let audioCtx=null;
+function beep(){ try{ audioCtx??=new AudioContext(); const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.frequency.value=880; g.gain.setValueAtTime(0.15,audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.25);
+  o.connect(g).connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.25); }catch{} }
+function download(text,type,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+const stamp=()=>new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+const keyOf=c=>`${c.fs}|${c.lo}|${c.hi}|${c.notch}|${c.N}`;
+
+// o: {p (id prefix), canvas, pos, neg, names, cue, say, demo, ready(), pm(), pf(), rule(), nFeat()}
+function makeTester(o){
+  const T={test:null}, q=s=>$(o.p+s);
+  T.start=()=>{
+    const err=o.ready(); if(err){ alert(err); return; }
+    if(!port&&!demoTimer){ alert('Connect the ESP32 or start the demo signal first.'); return; }
+    if(recording) stopRecording(); if(TAP.rec) tapStopRec();
+    const dur=Math.max(5,+q('Dur').value||20), rounds=Math.max(1,+q('Rounds').value|0);
+    const settle=Math.max(0,Math.min(dur-2,+q('Settle').value||0));
+    const first=q('First').value, other=first===o.pos?o.neg:o.pos;
+    const plan=[{label:null,dur:5}]; for(let r=0;r<rounds;r++) plan.push({label:first,dur},{label:other,dur});
+    const now=performance.now()/1000;
+    T.test={running:true,plan,idx:0,t0:now,segStart:now,settle,log:[],total:plan.reduce((s,p)=>s+p.dur,0),rule:{...o.rule()},nFeat:o.nFeat()};
+    q('Start').disabled=true; q('Stop').disabled=false; q('Export').disabled=true;
+    q('Results').innerHTML='<span class="small">Test running…</span>'; q('Verdict').textContent='';
+    cue();
+  };
+  function cue(){
+    const t=T.test, seg=t.plan[t.idx], el=q('Cue'), voice=q('Voice').checked;
+    if(seg.label===null){ el.textContent='Get ready'; el.style.color=css('--text'); say(voice,`Test starting. ${o.say[t.plan[1].label]} in five seconds.`); }
+    else { el.textContent=o.cue[seg.label]; el.style.color=seg.label===o.pos?css('--stand'):css('--lie');
+      beep(); say(voice,o.say[seg.label]); if(demoTimer) setDemoState(o.demo[seg.label]); } // demo follows the cues
+  }
+  setInterval(()=>{
+    const t=T.test; if(!t||!t.running) return;
+    const now=performance.now()/1000, seg=t.plan[t.idx], el=now-t.segStart, left=seg.dur-el;
+    if(left<=0){ t.idx++; if(t.idx>=t.plan.length){ finish(false); return; } t.segStart=now; cue(); return; }
+    q('CueSub').textContent= seg.label===null?`Starting in ${Math.ceil(left)} s`
+      :`${Math.ceil(left)} s left · step ${t.idx} of ${t.plan.length-1}`+(el<t.settle?' · transition, not scored':'');
+  },200);
+  T.onWindow=time=>{ const t=T.test; if(!t||!t.running) return; const seg=t.plan[t.idx], ts=time-t.segStart;
+    t.log.push({t:time-t.t0,seg:t.idx,truth:seg.label,ts,settle:seg.label===null||ts<t.settle,pML:o.pm(),pFFT:o.pf()}); };
+  function finish(stopped){
+    const t=T.test; t.running=false; q('Start').disabled=false; q('Stop').disabled=true; q('Export').disabled=!t.log.length;
+    q('Cue').textContent=stopped?'Stopped':'Done'; q('Cue').style.color=css('--text'); q('CueSub').textContent=stopped?'Partial results below':'Results below';
+    if(!stopped) say(q('Voice').checked,'Test complete.');
+    render();
+  }
+  function metrics(key){
+    const t=T.test, L=t.log, steady=L.filter(r=>r.truth&&!r.settle&&r[key]!=null);
+    let ok=0,sT=0,sOk=0,lT=0,lOk=0;
+    for(const r of steady){ const pr=r[key]>=0.5, tr=r.truth===o.pos; if(pr===tr) ok++; if(tr){ sT++; if(pr) sOk++; } else { lT++; if(!pr) lOk++; } }
+    const lat=[]; let miss=0, flips=0;
+    for(let s=1;s<t.plan.length;s++){
+      const rows=L.filter(r=>r.seg===s&&r[key]!=null); if(!rows.length) continue;
+      const want=t.plan[s].label===o.pos;
+      if(s>=2){ let found=null; for(let i=0;i+2<rows.length;i++) if([0,1,2].every(k=>(rows[i+k][key]>=0.5)===want)){ found=rows[i].ts; break; }
+        if(found===null) miss++; else lat.push(found); }
+      const st=rows.filter(r=>!r.settle); for(let i=1;i<st.length;i++) if((st[i][key]>=0.5)!==(st[i-1][key]>=0.5)) flips++;
+    }
+    return {n:steady.length,acc:steady.length?ok/steady.length:null,sens:sT?sOk/sT:null,spec:lT?lOk/lT:null,lat:avg(lat),miss,trans:lat.length+miss,flips};
+  }
+  function render(){
+    const f=metrics('pFFT'), m=metrics('pML');
+    if(!f.n&&!m.n){ q('Results').innerHTML='<span class="small">Not enough scored windows. Run the test longer.</span>'; q('Verdict').textContent=''; return; }
+    const pct=v=>v==null?'–':(v*100).toFixed(1)+'%', sec=v=>v==null?'–':v.toFixed(2)+' s';
+    const rows=[
+      ['Accuracy while holding a state',pct(f.acc),pct(m.acc),f.acc,m.acc,1],
+      [`${o.names[o.pos]} detected correctly`,pct(f.sens),pct(m.sens),f.sens,m.sens,1],
+      [`${o.names[o.neg]} detected correctly`,pct(f.spec),pct(m.spec),f.spec,m.spec,1],
+      ['Average reaction time after a cue',sec(f.lat),sec(m.lat),f.lat,m.lat,-1],
+      ['Changes never detected',`${f.miss} / ${f.trans}`,`${m.miss} / ${m.trans}`,f.miss,m.miss,-1],
+      ['False flips while holding still',f.flips,m.flips,f.flips,m.flips,-1],
+      ['Scored windows',f.n,m.n,null,null,0]];
+    let h='<table><tr><th style="text-align:left">Metric</th><th>FFT rule</th><th>ML</th></tr>';
+    for(const [name,a,b,va,vb,dir] of rows){
+      let wa='',wb=''; if(dir&&va!=null&&vb!=null&&va!==vb){ if(dir>0?va>vb:va<vb) wa=' class="win"'; else wb=' class="win"'; }
+      h+=`<tr><td style="text-align:left">${name}</td><td${wa}>${a}</td><td${wb}>${b}</td></tr>`;
+    }
+    q('Results').innerHTML=h+'</table>';
+    q('Verdict').textContent=verdict(f,m);
+  }
+  function verdict(f,m){
+    if(f.acc==null||m.acc==null) return '';
+    const d=(m.acc-f.acc)*100, A=v=>(v*100).toFixed(1)+'%'; let s;
+    if(Math.abs(d)<2) s=`Both methods were about equally accurate (ML ${A(m.acc)}, FFT rule ${A(f.acc)}).`;
+    else s=`${d>0?'Machine learning':'The FFT rule'} was more accurate by ${Math.abs(d).toFixed(1)} percentage points (ML ${A(m.acc)}, FFT rule ${A(f.acc)}).`;
+    if(f.lat!=null&&m.lat!=null&&Math.abs(f.lat-m.lat)>=0.25)
+      s+=`\n${f.lat<m.lat?'The FFT rule':'ML'} reacted faster to changes (${Math.min(f.lat,m.lat).toFixed(2)} s vs ${Math.max(f.lat,m.lat).toFixed(2)} s).`;
+    if(f.flips!==m.flips) s+=`\n${f.flips<m.flips?'The FFT rule':'ML'} was steadier while the state held (${Math.min(f.flips,m.flips)} vs ${Math.max(f.flips,m.flips)} false flips).`;
+    s+=`\n\nThe FFT rule decides from one number: ${T.test.rule.name}. ML combines ${T.test.nFeat} time and FFT features.`;
+    if(Math.abs(d)<2) s+=' When accuracy ties, the FFT rule is simpler to explain and to run on the ESP32 itself.';
+    if(f.n<60) s+='\nThis was a short test. Run more rounds before drawing a conclusion.';
+    return s;
+  }
+  T.export=()=>{
+    const t=T.test; if(!t?.log.length) return;
+    const lines=[`# fft_rule=${t.rule.name} ${t.rule.dir>0?'>':'<'} ${t.rule.thr}; transition_s=${t.settle}`,
+      'time_s,step,truth,in_transition,fft_p,ml_p,fft_pred,ml_pred'];
+    const P=v=>v==null?'':v>=0.5?o.pos:o.neg;
+    for(const r of t.log) lines.push([r.t.toFixed(3),r.seg,r.truth??'ready',r.settle?1:0,r.pFFT?.toFixed(4)??'',r.pML?.toFixed(4)??'',P(r.pFFT),P(r.pML)].join(','));
+    download(lines.join('\n'),'text/csv',`emg_${o.pos}_fft_vs_ml_${stamp()}.csv`);
+  };
+  T.draw=()=>{
+    const [g,W,H]=fit($(o.canvas)); g.clearRect(0,0,W,H); g.font='12px system-ui';
+    const t=T.test;
+    if(!t){ g.fillStyle=css('--muted'); g.fillText('The timeline appears when a test starts.',12,24); return; }
+    const LM=70, R=W-10, X=s=>LM+Math.min(1,s/t.total)*(R-LM), rh=24, grey='#3a414c', L=t.log;
+    g.fillStyle=css('--muted'); for(const [n,y] of [['Truth',10],['FFT rule',42],['ML',74]]) g.fillText(n,8,y+16);
+    let t0=0;
+    for(const seg of t.plan){ const x0=X(t0), x1=X(t0+seg.dur);
+      g.fillStyle=grey; g.fillRect(x0,10,x1-x0,rh);
+      if(seg.label){ const xs=X(t0+Math.min(t.settle,seg.dur)); g.fillStyle=seg.label===o.pos?css('--stand'):css('--lie'); g.fillRect(xs,10,x1-xs,rh); }
+      g.fillStyle=css('--bg'); g.fillRect(x1-1,10,1,rh); t0+=seg.dur; }
+    for(const [key,y] of [['pFFT',42],['pML',74]])
+      for(let i=1;i<L.length;i++){ const r=L[i]; if(r[key]==null) continue;
+        g.fillStyle=r[key]>=0.5?css('--stand'):css('--lie'); g.fillRect(X(L[i-1].t),y,Math.max(1,X(r.t)-X(L[i-1].t)),rh); }
+    const top=112, bot=H-20, Y=p=>bot-p*(bot-top);
+    g.fillStyle=css('--muted'); g.fillText('P',8,top+10); g.fillText('1',LM-14,top+4); g.fillText('0',LM-14,bot+4);
+    g.strokeStyle='#cdc8b4'; g.setLineDash([3,4]); g.beginPath(); g.moveTo(LM,Y(0.5)); g.lineTo(R,Y(0.5)); g.stroke(); g.setLineDash([]);
+    for(const [key,col] of [['pFFT','#b4561f'],['pML',css('--accent')]]){
+      g.strokeStyle=col; g.lineWidth=1.5; g.beginPath(); let on=false;
+      for(const r of L){ if(r[key]==null){ on=false; continue; } const x=X(r.t), y=Y(r[key]); on?g.lineTo(x,y):g.moveTo(x,y); on=true; }
+      g.stroke(); }
+    g.fillStyle='#b4561f'; g.fillText('— FFT rule',LM,H-4); g.fillStyle=css('--accent'); g.fillText('— ML',LM+80,H-4);
+    g.fillStyle=css('--muted'); g.textAlign='right'; g.fillText(`${t.total} s`,R,H-4); g.textAlign='left';
+    if(t.running){ const x=X(performance.now()/1000-t.t0); g.strokeStyle=css('--text'); g.lineWidth=1; g.beginPath(); g.moveTo(x,6); g.lineTo(x,bot); g.stroke(); }
+  };
+  q('Start').onclick=T.start;
+  q('Stop').onclick=()=>{ if(T.test?.running){ try{ speechSynthesis.cancel(); }catch{} finish(true); } };
+  q('Export').onclick=T.export;
+  return T;
+}
+
+/* ---------------- Foot-tap detector (sitting: tapping vs still) ---------------- */
+const TAP={dataset:[],seg:0,rec:null,model:null,pHist:[],fHist:[],ctx:[],lastR:null,state:false,attacks:0,lastAttack:-9,lastX:null,flash:0};
+const LS_TAP_MODEL='emgPosture.tapModel', LS_TAP_DATA='emgPosture.tapDataset';
+// Tap features = the 14 posture features of this window + how much RMS swung over the last ~1 s (8 windows).
+function tapOnWindow(F,t){
+  const r=F.vec[0]; TAP.ctx.push(r); while(TAP.ctx.length>8) TAP.ctx.shift();
+  if(TAP.ctx.length<8){ TAP.lastR=r; return; }
+  const m=avg(TAP.ctx), sd=Math.sqrt(avg(TAP.ctx.map(v=>(v-m)**2))), mn=Math.min(...TAP.ctx), mx=Math.max(...TAP.ctx);
+  const v=[...F.vec,sd,mx-mn,m];
+  if(TAP.rec){ const el=t-TAP.rec.start;
+    if(el>=TAP.rec.skip) TAP.dataset.push({seg:TAP.rec.seg,label:TAP.rec.label,f:v,key:cfgKey()});
+    if(el>=TAP.rec.skip+TAP.rec.dur) tapStopRec(); }
+  const M=TAP.model;
+  if(M&&M.key===cfgKey()){
+    const k=Math.max(1,+$('kSmooth').value|0);
+    TAP.pHist.push(predict(M,v)); while(TAP.pHist.length>k) TAP.pHist.shift();
+    if(M.fftRule){ const s=fftScore(M.fftRule,v); TAP.lastX=s.x; TAP.fHist.push(s.p); while(TAP.fHist.length>k) TAP.fHist.shift(); }
+    const p=$('kMethod').value==='fft'&&M.fftRule?avg(TAP.fHist):avg(TAP.pHist);
+    TAP.state=p>=0.5; // individual taps are counted by envBlock() while this says "tapping"
+    KT.onWindow(t);
+  } else TAP.state=false;
+  TAP.lastR=r;
+}
+// Fast 32 ms envelope: one attack per muscle burst onset, only while the tap model says "tapping".
+const ENV={acc:0,n:0,floor:null,peak:null,above:false};
+function envBlock(e){
+  const now=wIdx/cfg.fs;
+  if(ENV.floor===null){ ENV.floor=ENV.peak=e; return; }
+  ENV.floor=e<ENV.floor?e:ENV.floor+0.01;   // drops fast, rises ~0.3 per second
+  ENV.peak=e>ENV.peak?e:ENV.peak-0.01;      // rises fast, decays ~0.3 per second
+  const span=ENV.peak-ENV.floor;
+  if(!ENV.above&&span>0.5&&e>ENV.floor+0.5*span){ ENV.above=true; if(TAP.state&&now-TAP.lastAttack>0.15) fireAttack(now); }
+  else if(ENV.above&&e<ENV.floor+0.3*span) ENV.above=false;
+}
+function fireAttack(t){ TAP.attacks++; TAP.lastAttack=t; TAP.flash=performance.now(); window.dispatchEvent(new CustomEvent('emgtap')); }
+function tapStartRec(label){
+  if(!port&&!demoTimer){ alert('Connect the ESP32 or start the demo signal first.'); return; }
+  if(TAP.rec) tapStopRec(); if(recording) stopRecording();
+  TAP.rec={label,seg:++TAP.seg,start:performance.now()/1000,dur:Math.max(1,+$('kRecDur').value),skip:Math.max(0,+$('kRecSkip').value)};
+  $('kRecTap').classList.toggle('active',label==='tapping'); $('kRecStill').classList.toggle('active',label==='still'); $('kRecStop').disabled=false;
+}
+function tapStopRec(){ if(TAP.rec) tapPersistData(); TAP.rec=null; $('kRecTap').classList.remove('active'); $('kRecStill').classList.remove('active'); $('kRecStop').disabled=true; }
+function tapPersistData(){ try{ localStorage.setItem(LS_TAP_DATA,JSON.stringify({seg:TAP.seg,dataset:TAP.dataset})); }catch{} }
+function tapPersistModel(){ try{ localStorage.setItem(LS_TAP_MODEL,JSON.stringify(TAP.model)); }catch{} }
+function tapTrain(){
+  const msg=$('kTrainMsg'); msg.classList.remove('err');
+  const items=TAP.dataset.filter(d=>d.key===cfgKey()), nT=items.filter(d=>d.label==='tapping').length, nS=items.length-nT;
+  if(nT<10||nS<10){ msg.textContent='Need at least 10 windows of tapping and 10 of still. Record a take of each first.'; msg.classList.add('err'); return; }
+  const bySeg={}; for(const d of items)(bySeg[d.seg]??=[]).push(d);
+  const tr=[],te=[];
+  for(const arr of Object.values(bySeg)){ if(arr.length<8){ tr.push(...arr); continue; } const cut=Math.floor(arr.length*0.75); tr.push(...arr.slice(0,cut-1)); te.push(...arr.slice(cut)); }
+  const both=a=>a.some(d=>d.label==='tapping')&&a.some(d=>d.label==='still');
+  let ml=null, ff=null, rep='';
+  if(both(tr)&&both(te)){
+    ml=evaluate(fitLR(tr,'tapping'),te,'tapping').acc; const r=fitFFTRule(tr,'auto','tapping'); if(r) ff=evalRule(r,te,'tapping');
+    rep+=`Held-out accuracy: ML ${(ml*100).toFixed(1)}%, FFT rule ${ff==null?'n/a':(ff*100).toFixed(1)+'%'} (${te.length} windows)\n`;
+  } else rep+='Not enough data per take for a held-out test; trained on everything.\n';
+  const M=fitLR(items,'tapping');
+  Object.assign(M,{type:'emg-tap-logreg',version:1,trained:new Date().toISOString(),cfg:{...cfg},heldOutAcc:ml,fftHeldOutAcc:ff,
+    nTap:nT,nStill:nS,fftRule:fitFFTRule(items,'auto','tapping')});
+  TAP.model=M; TAP.pHist=[]; TAP.fHist=[]; tapPersistModel(); tapShowInfo();
+  msg.textContent=rep+'Tap model trained and saved in this browser. Tap Brawl uses it for attacks.';
+}
+function tapShowInfo(){
+  const M=TAP.model; $('kSave').disabled=!M;
+  if(!M){ $('kModelInfo').textContent='No tap model yet'; return; }
+  const pc=v=>v==null?'n/a':(v*100).toFixed(1)+'%';
+  $('kModelInfo').textContent=`Trained ${new Date(M.trained).toLocaleString()} · held-out ML ${pc(M.heldOutAcc)}, FFT rule ${pc(M.fftHeldOutAcc)}`+
+    (M.key!==cfgKey()?' · ⚠ trained with different signal settings; retrain or switch them back':'');
+}
+function tapRestore(){
+  try{ const d=JSON.parse(localStorage.getItem(LS_TAP_DATA)||'null'); if(d&&Array.isArray(d.dataset)){ TAP.dataset=d.dataset; TAP.seg=d.seg||0; } }catch{}
+  try{ const m=JSON.parse(localStorage.getItem(LS_TAP_MODEL)||'null'); if(m&&m.cfg&&Array.isArray(m.w)){ m.key=keyOf(m.cfg); TAP.model=m; } }catch{}
+  tapShowInfo();
+}
+function updateTapUI(){
+  const hopS=cfg.N/2/cfg.fs, c={tapping:0,still:0}, s={tapping:new Set(),still:new Set()};
+  for(const d of TAP.dataset){ c[d.label]++; s[d.label].add(d.seg); }
+  $('kCounts').innerHTML=`<span style="color:var(--stand)">Tapping: ${c.tapping} windows · ${s.tapping.size} takes · ~${(c.tapping*hopS).toFixed(0)} s</span><br>`+
+    `<span style="color:var(--lie)">Still: ${c.still} windows · ${s.still.size} takes · ~${(c.still*hopS).toFixed(0)} s</span>`;
+  if(TAP.rec){ const el=performance.now()/1000-TAP.rec.start;
+    $('kRecInfo').textContent= el<TAP.rec.skip?`Get ready… ${(TAP.rec.skip-el).toFixed(1)} s`:`Recording ${TAP.rec.label.toUpperCase()} (take ${TAP.rec.seg}) — ${(el-TAP.rec.skip).toFixed(1)} / ${TAP.rec.dur} s`;
+  } else $('kRecInfo').textContent='Not recording';
+  const M=TAP.model, ok=M&&M.key===cfgKey()&&(port||demoTimer);
+  setDet('kFft','kFftBar',ok&&M.fftRule?avg(TAP.fHist):null,'TAPPING','STILL');
+  setDet('kMl','kMlBar',ok?avg(TAP.pHist):null,'TAPPING','STILL');
+  const r=M?.fftRule;
+  $('kFftDesc').textContent=!M?'Train a tap model first.':r?`Tapping when ${r.name} ${r.dir>0?'>':'<'} ${r.thr.toFixed(2)}`+(ok&&TAP.lastX!=null?`\nNow: ${TAP.lastX.toFixed(2)}`:''):'';
+  $('kMlDesc').textContent=!M?'':`Logistic regression on ${M.w.length} features (includes how much the signal swung over the last second)`;
+  $('kAttacks').textContent=TAP.attacks;
+  $('kAttackBox').style.borderColor=performance.now()-TAP.flash<180?css('--stand'):css('--line');
+  KT.draw();
+}
+
+/* ---------------- Flex intensity: regression from EMG features to effort 0–100% ---------------- */
+// Two estimators trained on the same calibration data:
+//  ML  = ridge regression on the 14 window features + linear RMS (standardized)
+//  RMS = no ML: median RMS per calibrated level, interpolated piecewise-linearly
+const FLEX={dataset:[],seg:0,rec:null,model:null,cal:null,ml:null,rms:null,level:null,hist:[]};
+const LS_FLEX_MODEL='emgPosture.flexModel', LS_FLEX_DATA='emgPosture.flexDataset';
+const FLEX_LEVELS=[0,0.25,0.5,0.75,1];
+const flexFeat=F=>[...F.vec,F.rms];
+const clamp01=v=>v<0?0:v>1?1:v;
+function solveLin(A,y){ // Gaussian elimination with partial pivoting (A is d×d, modified in place)
+  const d=y.length;
+  for(let c=0;c<d;c++){
+    let p=c; for(let r=c+1;r<d;r++) if(Math.abs(A[r][c])>Math.abs(A[p][c])) p=r;
+    [A[c],A[p]]=[A[p],A[c]]; [y[c],y[p]]=[y[p],y[c]];
+    const piv=A[c][c]||1e-12;
+    for(let r=c+1;r<d;r++){ const f=A[r][c]/piv; if(!f) continue; for(let k=c;k<d;k++) A[r][k]-=f*A[c][k]; y[r]-=f*y[c]; }
+  }
+  const w=new Array(d).fill(0);
+  for(let r=d-1;r>=0;r--){ let s=y[r]; for(let k=r+1;k<d;k++) s-=A[r][k]*w[k]; w[r]=s/(A[r][r]||1e-12); }
+  return w;
+}
+function fitRidge(items,lam=0.03){
+  const n=items.length, d=items[0].f.length, mu=new Array(d).fill(0), sd=new Array(d).fill(0);
+  for(const it of items) for(let j=0;j<d;j++) mu[j]+=it.f[j]/n;
+  for(const it of items) for(let j=0;j<d;j++) sd[j]+=(it.f[j]-mu[j])**2/n;
+  for(let j=0;j<d;j++) sd[j]=Math.sqrt(sd[j])||1;
+  const ym=avg(items.map(it=>it.level)), A=Array.from({length:d},()=>new Array(d).fill(0)), r=new Array(d).fill(0);
+  for(const it of items){ const z=it.f.map((v,j)=>(v-mu[j])/sd[j]), e=it.level-ym;
+    for(let a=0;a<d;a++){ r[a]+=z[a]*e; for(let b=a;b<d;b++) A[a][b]+=z[a]*z[b]; } }
+  for(let a=0;a<d;a++){ for(let b=0;b<a;b++) A[a][b]=A[b][a]; A[a][a]+=lam*n; }
+  return {mu,sd,w:solveLin(A,r),b:ym};
+}
+function predictRidge(m,f){ let z=m.b; for(let j=0;j<f.length;j++) z+=m.w[j]*(f[j]-m.mu[j])/m.sd[j]; return z; }
+function fitCurve(items){ // median linear RMS per level, forced monotonic
+  const by={}; for(const it of items)(by[it.level]??=[]).push(it.f[it.f.length-1]);
+  const lv=Object.keys(by).map(Number).sort((a,b)=>a-b), med=a=>{ const s=[...a].sort((x,y)=>x-y); return s[s.length>>1]; };
+  const rms=lv.map(l=>med(by[l])); for(let i=1;i<rms.length;i++) rms[i]=Math.max(rms[i],rms[i-1]+1e-6);
+  return {lv,rms};
+}
+function predictCurve(c,f){
+  const x=f[f.length-1], R=c.rms, L=c.lv;
+  if(x<=R[0]) return L[0]; if(x>=R[R.length-1]) return L[L.length-1];
+  for(let i=1;i<R.length;i++) if(x<=R[i]) return L[i-1]+(L[i]-L[i-1])*(x-R[i-1])/(R[i]-R[i-1]);
+  return L[L.length-1];
+}
+function regScore(pred,items){ const y=items.map(it=>it.level), ym=avg(y); let ae=0,se=0,st=0;
+  items.forEach((it,i)=>{ const p=clamp01(pred[i]); ae+=Math.abs(p-it.level); se+=(p-it.level)**2; st+=(it.level-ym)**2; });
+  return {mae:ae/items.length,r2:st>0?1-se/st:null}; }
+function flexOnWindow(F,t){
+  const f=flexFeat(F);
+  if(FLEX.rec){ const el=t-FLEX.rec.start;
+    if(el>=FLEX.rec.skip) FLEX.dataset.push({seg:FLEX.rec.seg,level:FLEX.rec.level,f,key:cfgKey()});
+    if(el>=FLEX.rec.skip+FLEX.rec.dur) flexStopRec(); }
+  const M=FLEX.model;
+  if(M&&M.key===cfgKey()){
+    FLEX.ml=clamp01(predictRidge(M,f)); FLEX.rms=clamp01(predictCurve(M.curve,f));
+    const raw=$('xMethod').value==='rms'?FLEX.rms:FLEX.ml, dz=Math.min(0.5,Math.max(0,(+$('xDead').value||0)/100));
+    const x=raw<=dz?0:(raw-dz)/(1-dz), tau=Math.max(0,+$('xTau').value||0), a=tau>0?1-Math.exp(-(cfg.N/2/cfg.fs)/tau):1;
+    FLEX.level=FLEX.level==null?x:FLEX.level+a*(x-FLEX.level);
+  } else { FLEX.ml=FLEX.rms=FLEX.level=null; }
+  FLEX.hist.push({t,ml:FLEX.ml,rms:FLEX.rms,lvl:FLEX.level,target:FLEX.cal?.target??null});
+  while(FLEX.hist.length&&FLEX.hist[0].t<t-30) FLEX.hist.shift();
+}
+function flexStartRec(level,dur,skip){
+  if(!port&&!demoTimer){ alert('Connect the ESP32 or start the demo signal first.'); return false; }
+  if(recording) stopRecording(); if(TAP.rec) tapStopRec();
+  FLEX.rec={level,seg:++FLEX.seg,start:performance.now()/1000,dur,skip}; $('xRecStop').disabled=FLEX.cal!=null; $('xRec').classList.add('active');
+  return true;
+}
+function flexStopRec(){ if(FLEX.rec) flexPersistData(); FLEX.rec=null; $('xRecStop').disabled=true; $('xRec').classList.remove('active'); }
+function flexPersistData(){ try{ localStorage.setItem(LS_FLEX_DATA,JSON.stringify({seg:FLEX.seg,dataset:FLEX.dataset})); }catch{} }
+function flexPersistModel(){ try{ localStorage.setItem(LS_FLEX_MODEL,JSON.stringify(FLEX.model)); }catch{} }
+const pctTxt=v=>Math.round(v*100)+'%';
+const FLEX_SAY={0:'Relax',0.25:'Flex at 25 percent',0.5:'Flex at half effort',0.75:'Flex at 75 percent',1:'Maximum flex'};
+function flexCalStart(){
+  if(!port&&!demoTimer){ alert('Connect the ESP32 or start the demo signal first.'); return; }
+  const dur=Math.max(3,+$('xDur').value||6), settle=Math.min(dur-1,Math.max(0,+$('xSettle').value||0)), rounds=Math.min(5,Math.max(1,+$('xRounds').value|0));
+  const plan=[]; for(let r=0;r<rounds;r++) for(const l of FLEX_LEVELS) plan.push(l);
+  FLEX.cal={plan,i:-1,dur,settle,lead:3,t0:performance.now()/1000,target:null,voice:$('xVoice').checked};
+  $('xCal').disabled=true; $('xCalStop').disabled=false; say(FLEX.cal.voice,'Get ready. Relax your muscle.');
+}
+function flexCalTick(){
+  const C=FLEX.cal; if(!C) return;
+  const el=performance.now()/1000-C.t0-C.lead; if(el<0) return;
+  const i=Math.floor(el/C.dur);
+  if(i>=C.plan.length){ flexCalStop(true); return; }
+  if(i!==C.i){ C.i=i; C.target=C.plan[i]; flexStopRec(); flexStartRec(C.target,C.dur-C.settle-0.05,C.settle);
+    beep(); say(C.voice,FLEX_SAY[C.target]); if(demoTimer){ $('demoFlex').value=Math.round(C.target*100); setDemoState('flex'); } }
+}
+function flexCalStop(done){
+  if(!FLEX.cal) return; FLEX.cal=null; flexStopRec(); try{ speechSynthesis.cancel(); }catch{}
+  $('xCal').disabled=false; $('xCalStop').disabled=true;
+  if(done){ say($('xVoice').checked,'Calibration done'); flexTrain(); }
+}
+function flexTrain(){
+  const msg=$('xTrainMsg'); msg.classList.remove('err');
+  const items=FLEX.dataset.filter(d=>d.key===cfgKey()), lv=new Set(items.map(d=>d.level));
+  if(items.length<20||lv.size<3||!lv.has(0)){ msg.textContent='Need at least 3 levels including 0% (relaxed), about 20 windows in total. Run the guided calibration first.'; msg.classList.add('err'); return; }
+  const bySeg={}; for(const d of items)(bySeg[d.seg]??=[]).push(d);
+  const tr=[],te=[];
+  for(const arr of Object.values(bySeg)){ if(arr.length<8){ tr.push(...arr); continue; } const cut=Math.floor(arr.length*0.75); tr.push(...arr.slice(0,cut-1)); te.push(...arr.slice(cut)); }
+  let ho=null, rep='';
+  if(te.length>=5&&new Set(tr.map(d=>d.level)).size>=3){
+    const m=fitRidge(tr), c=fitCurve(tr);
+    ho={ml:regScore(te.map(it=>predictRidge(m,it.f)),te),rms:regScore(te.map(it=>predictCurve(c,it.f)),te),n:te.length};
+    const r2=v=>v==null?'n/a':v.toFixed(2);
+    rep+=`Held-out error (last 25% of each take, ${te.length} windows):\nML: off by ${(ho.ml.mae*100).toFixed(1)} points on average, R² ${r2(ho.ml.r2)}\nRMS curve: off by ${(ho.rms.mae*100).toFixed(1)} points on average, R² ${r2(ho.rms.r2)}\n`;
+  } else rep+='Not enough data per take for a held-out test; trained on everything.\n';
+  const R=fitRidge(items);
+  const M={type:'emg-flex-ridge',version:1,trained:new Date().toISOString(),cfg:{...cfg},features:[...featureNames(),'RMS (linear)'],
+    mu:R.mu,sd:R.sd,w:R.w,b:R.b,curve:fitCurve(items),heldOut:ho,n:items.length,levels:[...lv].sort((a,b)=>a-b)};
+  M.key=cfgKey(); FLEX.model=M; FLEX.level=null; flexPersistModel(); flexShowInfo(); flexFitTable(items);
+  msg.textContent=rep+'Flex model trained and saved in this browser. Sky Race uses it for boost.';
+}
+function flexFitTable(items){
+  const M=FLEX.model; if(!M||!items.length){ $('xFit').innerHTML='<span class="small">Train a model to see how well each method tracks each level.</span>'; return; }
+  const by={}; for(const it of items)(by[it.level]??=[]).push(it);
+  const sdv=a=>{ const m=avg(a); return Math.sqrt(avg(a.map(v=>(v-m)**2))); };
+  let h='<table><tr><th style="text-align:left">Target</th><th>Windows</th><th>Median RMS</th><th>RMS curve (mean ± sd)</th><th>ML (mean ± sd)</th></tr>';
+  for(const l of Object.keys(by).map(Number).sort((a,b)=>a-b)){
+    const arr=by[l], pr=arr.map(it=>clamp01(predictCurve(M.curve,it.f))*100), pm=arr.map(it=>clamp01(predictRidge(M,it.f))*100);
+    const rms=arr.map(it=>it.f[it.f.length-1]).sort((a,b)=>a-b)[arr.length>>1];
+    h+=`<tr><td style="text-align:left">${pctTxt(l)}</td><td>${arr.length}</td><td>${rms.toFixed(1)}</td><td>${avg(pr).toFixed(0)} ± ${sdv(pr).toFixed(0)}</td><td>${avg(pm).toFixed(0)} ± ${sdv(pm).toFixed(0)}</td></tr>`;
+  }
+  $('xFit').innerHTML=h+'</table><div class="small" style="margin-top:6px">Predictions on the training data. A good model shows means close to the target and small spread.</div>';
+}
+function flexShowInfo(){
+  const M=FLEX.model; $('xSave').disabled=!M;
+  if(!M){ $('xModelInfo').textContent='No flex model yet'; return; }
+  const e=v=>v?`±${(v.mae*100).toFixed(0)} pts`:'n/a';
+  $('xModelInfo').textContent=`Trained ${new Date(M.trained).toLocaleString()} · held-out ML ${e(M.heldOut?.ml)}, RMS curve ${e(M.heldOut?.rms)}`+
+    (M.key!==cfgKey()?' · ⚠ trained with different signal settings; retrain or switch them back':'');
+}
+function flexRestore(){
+  try{ const d=JSON.parse(localStorage.getItem(LS_FLEX_DATA)||'null'); if(d&&Array.isArray(d.dataset)){ FLEX.dataset=d.dataset; FLEX.seg=d.seg||0; } }catch{}
+  try{ const m=JSON.parse(localStorage.getItem(LS_FLEX_MODEL)||'null'); if(m&&m.cfg&&Array.isArray(m.w)&&m.curve){ m.key=keyOf(m.cfg); FLEX.model=m; } }catch{}
+  flexShowInfo(); if(FLEX.model) flexFitTable(FLEX.dataset.filter(d=>d.key===cfgKey()));
+}
+function flexReady(){ return !!(FLEX.model&&FLEX.model.key===cfgKey()&&(port||demoTimer)&&FLEX.level!=null); }
+function updateFlexUI(){
+  flexCalTick();
+  const hopS=cfg.N/2/cfg.fs, c={}, segs={};
+  for(const d of FLEX.dataset){ c[d.level]=(c[d.level]||0)+1; (segs[d.level]??=new Set()).add(d.seg); }
+  $('xCounts').textContent=FLEX_LEVELS.map(l=>`${pctTxt(l)}: ${c[l]||0} windows · ${segs[l]?.size||0} takes · ~${((c[l]||0)*hopS).toFixed(0)} s`).join('\n');
+  $('xCounts').style.whiteSpace='pre-line';
+  const C=FLEX.cal, now=performance.now()/1000, live=port||demoTimer, ok=flexReady();
+  if(FLEX.rec&&!C){ const el=now-FLEX.rec.start; $('xRecInfo').textContent=el<FLEX.rec.skip?`Get ready… ${(FLEX.rec.skip-el).toFixed(1)} s`:`Recording ${pctTxt(FLEX.rec.level)} (take ${FLEX.rec.seg}) — ${(el-FLEX.rec.skip).toFixed(1)} / ${FLEX.rec.dur} s`; }
+  else if(!C) $('xRecInfo').textContent='Not recording';
+  const tgt=$('xTarget');
+  if(C){
+    const el=now-C.t0-C.lead;
+    if(el<0){ $('xCue').textContent='Relax'; $('xCueSub').textContent=`Starting in ${Math.ceil(-el)} s`; tgt.style.display='none'; }
+    else { const left=C.dur-(el-C.i*C.dur);
+      $('xCue').textContent=C.target===0?'RELAX':`FLEX ${pctTxt(C.target)}`;
+      $('xCueSub').textContent=`Step ${C.i+1} of ${C.plan.length} · ${left.toFixed(1)} s left`+(el-C.i*C.dur<C.settle?' · settling, not recorded yet':' · recording');
+      tgt.style.display='block'; tgt.style.left=(C.target*100)+'%'; $('xRecInfo').textContent=`Guided calibration: step ${C.i+1} of ${C.plan.length}`; }
+  } else {
+    tgt.style.display='none';
+    $('xCue').textContent=ok?pctTxt(FLEX.level):'—';
+    $('xCueSub').textContent=!live?'Connect the ESP32 or start the demo signal, then calibrate.':!FLEX.model?'Run the guided calibration, then the model trains by itself.':FLEX.model.key!==cfgKey()?'The flex model was trained with different signal settings. Retrain it.':'Live flex level (this drives the boost in Sky Race)';
+  }
+  $('xFill').style.width=((ok?FLEX.level:0)*100)+'%';
+  const card=(id,bar,v)=>{ const el=$(id); if(v==null||!live){ el.textContent='—'; $(bar).style.width='0'; return; } el.textContent=pctTxt(v); $(bar).style.width=(v*100)+'%'; };
+  card('xRms','xRmsBar',FLEX.rms); card('xMl','xMlBar',FLEX.ml);
+  const M=FLEX.model;
+  $('xRmsDesc').textContent=M?`Interpolates between the median RMS of each calibrated level (${M.curve.rms.map(v=>v.toFixed(0)).join(' → ')}).`:'Train a flex model first.';
+  $('xMlDesc').textContent=M?`Ridge regression on ${M.w.length} features (amplitude + FFT).`:'';
+  drawFlex();
+}
+function drawFlex(){
+  const [g,w,h]=fit($('cFlex')); g.clearRect(0,0,w,h);
+  const L=34, R=w-8, T=8, B=h-20, now=performance.now()/1000, X=t=>R-(now-t)/30*(R-L), Y=v=>B-v*(B-T);
+  g.font='11px system-ui'; g.fillStyle=css('--muted');
+  for(const v of [0,0.25,0.5,0.75,1]){ g.fillText(pctTxt(v),2,Y(v)+4); g.strokeStyle='#e5e1d1'; g.beginPath(); g.moveTo(L,Y(v)); g.lineTo(R,Y(v)); g.stroke(); }
+  g.fillText('−30 s',L,h-4); g.textAlign='right'; g.fillText('now',R,h-4); g.textAlign='left';
+  const line=(key,col,wd)=>{ g.strokeStyle=col; g.lineWidth=wd; g.beginPath(); let on=false;
+    for(const p of FLEX.hist){ if(p[key]==null){ on=false; continue; } const x=X(p.t), y=Y(p[key]); on?g.lineTo(x,y):g.moveTo(x,y); on=true; } g.stroke(); };
+  line('target','#1d2a22',2); line('rms','#b4561f',1.5); line('ml',css('--accent'),1.5);
+}
+
+function setDet(id,bar,p,posTxt='STANDING',negTxt='LYING'){
+  const el=$(id); if(p==null){ el.textContent='—'; el.style.color=css('--muted'); $(bar).style.width='0'; return; }
+  const st=p>=0.5; el.textContent=st?posTxt:negTxt; el.style.color=st?css('--stand'):css('--lie');
+  $(bar).style.width=(p*100).toFixed(0)+'%'; $(bar).style.background=st?css('--stand'):css('--lie');
+}
+function updateDetCards(){
+  const ok=model&&model.key===cfgKey(), live=port||demoTimer;
+  setDet('mlState','mlBar',ok&&live?avg(pHist):null); setDet('fftState','fftBar',ok&&live&&model.fftRule?avg(fHist):null);
+  if(!model){ $('fftDesc').textContent=''; $('mlDesc').textContent='No model yet.'; return; }
+  const r=model.fftRule, pc=v=>v==null?'n/a':(v*100).toFixed(1)+'%';
+  $('fftDesc').textContent=r?`Standing when ${r.name} ${r.dir>0?'>':'<'} ${r.thr.toFixed(2)}`+(lastFftX!=null&&live?`\nNow: ${lastFftX.toFixed(2)}`:''):'This model has no FFT rule. Train it once more.';
+  $('mlDesc').textContent=`Logistic regression on ${model.w.length} features`+(ok&&live&&pHist.length?`\nP(standing) = ${avg(pHist).toFixed(2)}`:'');
+  $('detInfo').textContent=`On the held-out part of your training data: ML ${pc(model.heldOutAcc)}, FFT rule ${pc(model.fftHeldOutAcc)}. The test below, on new data, is the fair comparison.`;
+}
+/* ---------------- Share live: everyone streams raw EMG over MQTT; each page classifies everyone with its own model ---------------- */
+const MQTT_URL='https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js';
+const SH={client:null,id:null,base:null,peers:new Map(),out:[],timer:null,seq:0,cards:new Map()};
+function randCode(n){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r=crypto.getRandomValues(new Uint8Array(n)); let s=''; for(const x of r) s+=a[x%a.length]; return s; }
+function shPrefs(save){
+  const k='emgPosture.share';
+  if(save){ try{ localStorage.setItem(k,JSON.stringify({id:SH.id,name:$('shName').value,room:$('shRoom').value,broker:$('shBroker').value})); }catch{} return; }
+  let p={}; try{ p=JSON.parse(localStorage.getItem(k)||'{}'); }catch{}
+  SH.id=p.id||randCode(10); $('shName').value=p.name||''; $('shRoom').value=p.room||('ROOM-'+randCode(8));
+  $('shBroker').value=p.broker||'wss://broker.emqx.io:8084/mqtt';
+  shPrefs(true);
+}
+function shMsg(t,err){ const m=$('shMsg'); m.textContent=t; m.classList.toggle('err',!!err); }
+function loadMqtt(){ return new Promise((res,rej)=>{ if(window.mqtt) return res();
+  const s=document.createElement('script'); s.src=MQTT_URL; s.onload=()=>res();
+  s.onerror=()=>rej(new Error('Could not load the MQTT library. Check your internet connection.')); document.head.appendChild(s); }); }
+function b64FromU16(arr){ const b=new Uint8Array(new Uint16Array(arr).buffer); let s=''; for(let i=0;i<b.length;i+=0x8000) s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000)); return btoa(s); }
+function u16FromB64(s){ const bin=atob(s), b=new Uint8Array(bin.length&~1); for(let i=0;i<b.length;i++) b[i]=bin.charCodeAt(i); return new Uint16Array(b.buffer); }
+
+async function shJoin(){
+  const name=$('shName').value.trim(), room=$('shRoom').value.trim(), broker=$('shBroker').value.trim();
+  if(!name){ shMsg('Enter your name first.',true); return; }
+  if(!/^[A-Za-z0-9_-]{4,40}$/.test(room)){ shMsg('Room code must be 4–40 letters, numbers, - or _.',true); return; }
+  if(!/^wss?:\/\//.test(broker)){ shMsg('Broker address must start with wss://',true); return; }
+  shPrefs(true); shMsg('Connecting…'); $('shJoin').disabled=true;
+  try{ await loadMqtt(); }catch(e){ shMsg(e.message,true); $('shJoin').disabled=false; return; }
+  SH.base=`emgposture/v2/${room}`; SH.peers.clear(); SH.cards.clear(); SH.out=[];
+  const c=mqtt.connect(broker,{clientId:`emgp_${SH.id}_${randCode(4)}`,clean:true,connectTimeout:8000,reconnectPeriod:3000});
+  SH.client=c;
+  c.on('connect',()=>{ shMsg(`Connected to room ${room}. Your signal is streaming. Others join with the same room code.`); c.subscribe(`${SH.base}/sig/+`); });
+  c.on('reconnect',()=>shMsg('Reconnecting…'));
+  c.on('offline',()=>shMsg('Offline. Retrying…',true));
+  c.on('error',e=>shMsg('Connection error: '+e.message,true));
+  c.on('message',(topic,buf)=>{
+    const id=topic.split('/').pop(); if(id===SH.id) return;
+    let m; try{ m=JSON.parse(buf.toString()); }catch{ return; }
+    if(m?.v!==2||typeof m.d!=='string'||!(m.fs>0)) return;
+    let arr; try{ arr=u16FromB64(m.d); }catch{ return; }
+    if(arr.length>4*m.fs) return;
+    let P=SH.peers.get(id); if(!P){ P=makePeer(id); SH.peers.set(id,P); }
+    P.name=String(m.name||'').slice(0,30); P.last=Date.now();
+    peerSamples(P,+m.fs,Number.isFinite(+m.mid)?+m.mid:2048,arr);
+  });
+  SH.timer=setInterval(shSend,250);
+  $('shLeave').disabled=false; for(const i of ['shRoom','shBroker','shNewRoom']) $(i).disabled=true;
+}
+function shSend(){
+  if(!SH.client?.connected||!(port||demoTimer)){ SH.out.length=0; return; }
+  if(!SH.out.length) return;
+  const d=b64FromU16(SH.out); SH.out=[];
+  SH.client.publish(`${SH.base}/sig/${SH.id}`,JSON.stringify({v:2,name:$('shName').value.trim().slice(0,30),fs:cfg.fs,mid:cfg.mid,seq:SH.seq++,d}),{qos:0});
+}
+function shLeave(){
+  clearInterval(SH.timer); SH.timer=null;
+  if(SH.client){ const c=SH.client; SH.client=null; c.end(false); }
+  for(const id of SH.peers.keys()) TRK.delete(id);
+  SH.peers.clear(); SH.out=[]; shMsg('You left the room.'); $('shJoin').disabled=false; $('shLeave').disabled=true;
+  for(const i of ['shRoom','shBroker','shNewRoom']) $(i).disabled=false; renderPeople();
+}
+function makePeer(id){ return {id,name:'',ring:new Float32Array(RING),w:0,hop:0,chain:null,key:null,pm:[],pf:[],last:Date.now(),mismatch:false}; }
+// Run someone else's raw samples through YOUR filters, FFT features, ML model and FFT rule.
+function peerSamples(P,fs,mid,arr){
+  if(fs!==cfg.fs){ P.mismatch=true; return; } P.mismatch=false;
+  if(P.key!==cfgKey()){ P.chain=makeChain(); P.key=cfgKey(); P.w=0; P.hop=0; P.pm=[]; P.pf=[]; }
+  const N=cfg.N, k=Math.max(1,+$('smooth').value|0);
+  for(let i=0;i<arr.length;i++){
+    let y=arr[i]-mid; for(const f of P.chain) y=f.process(y);
+    P.ring[P.w&RMASK]=y; P.w++;
+    if(++P.hop>=N/2&&P.w>=N+cfg.fs/2){ P.hop=0;
+      const x=new Float32Array(N), s=P.w-N; for(let j=0;j<N;j++) x[j]=P.ring[(s+j)&RMASK];
+      const F=extract(x);
+      if(model&&model.key===cfgKey()){
+        P.pm.push(predict(model,F.vec)); while(P.pm.length>k) P.pm.shift();
+        if(model.fftRule){ P.pf.push(fftScore(model.fftRule,F.vec).p); while(P.pf.length>k) P.pf.shift(); }
+        trackWindow(P.id,P.name||'(no name)',avg(P.pm),F);
+      }
+      fatWindow(P.id,F);
+    }
+  }
+}
+function personCard(id){
+  let c=SH.cards.get(id); if(c) return c;
+  const mk=(tag,cls)=>{ const e=document.createElement(tag); if(cls) e.className=cls; return e; };
+  const el=mk('div'), nm=mk('div','name'), n=mk('span'), tag=mk('span','tag'); nm.append(n,tag);
+  const ml=mk('div','big'), ff=mk('div','small'), stl=mk('div','small'), mf=mk('div','small'), tot=mk('div','small'), st=mk('div','small');
+  const cv=mk('canvas'); cv.style.height='46px';
+  const tl=mk('canvas'); tl.style.height='12px'; tl.title='Last 10 minutes: green = standing, orange = down';
+  const al=mk('div','card-alert'), alT=mk('span'), alB=mk('button'); alB.type='button'; alB.textContent='Dismiss'; alB.onclick=()=>dismissAlert(id); al.append(alT,alB); al.hidden=true;
+  el.append(nm,ml,ff,al,stl,cv,tl,tot,mf,st);
+  c={el,n,tag,ml,ff,stl,cv,tl,tot,mf,st,al,alT}; SH.cards.set(id,c); return c;
+}
+function drawSpark(cv,buf,w){
+  const [g,W,H]=fit(cv); g.clearRect(0,0,W,H); const n=Math.min(w,cfg.fs*2); if(n<2||W<2) return;
+  const s=w-n; let mx=1; for(let i=0;i<n;i+=4) mx=Math.max(mx,Math.abs(buf[(s+i)&RMASK]));
+  g.strokeStyle=css('--accent'); g.lineWidth=1; g.beginPath(); const spp=n/W;
+  for(let px=0;px<W;px++){ let lo=Infinity,hi=-Infinity; const a=Math.floor(px*spp), b=Math.floor((px+1)*spp);
+    for(let i=a;i<b;i++){ const v=buf[(s+i)&RMASK]; if(v<lo)lo=v; if(v>hi)hi=v; }
+    if(lo===Infinity) continue; g.moveTo(px+.5,H/2-hi/mx*(H/2-2)); g.lineTo(px+.5,H/2-lo/mx*(H/2-2)+1); }
+  g.stroke();
+}
+function drawTimeline(cv,T,now){
+  const [g,W,H]=fit(cv); g.fillStyle='#ece9db'; g.fillRect(0,0,W,H); if(!T) return;
+  const X=t=>W-(now-t)/600*W, w=Math.max(1,W/600+0.5);
+  for(const s of T.sec){ g.fillStyle=s.p>=0.5?css('--stand'):css('--lie'); g.fillRect(X(s.t),0,w,H); }
+}
+function renderPeople(){
+  const box=$('shPeople'), now=Date.now(), ts=now/1000;
+  for(const [id,P] of SH.peers) if(now-P.last>60000){ SH.peers.delete(id); TRK.delete(id); }
+  const ids=[SH.id,...(SH.client?[...SH.peers.keys()].sort((a,b)=>SH.peers.get(a).name.localeCompare(SH.peers.get(b).name)):[])];
+  const live=port||demoTimer, hasModel=model&&model.key===cfgKey(), els=[];
+  for(const id of ids){ // text only via textContent: names come from other people
+    const me=id===SH.id, P=me?null:SH.peers.get(id), c=personCard(id), T=TRK.get(id); els.push(c.el);
+    c.n.textContent=me?($('shName').value.trim()||'You'):(P.name||'(no name)'); c.tag.textContent=me?'YOU':'';
+    const age=me?0:Math.round((now-P.last)/1000), stale=me?!live:age>5;
+    c.el.className='card'+(me?' me':'')+(stale?' stale':'')+(T?.alert?' alarm':'');
+    const pm=me?(hasModel&&live?avg(pHist):null):avg(P.pm), pf=me?(hasModel&&live&&model.fftRule?avg(fHist):null):avg(P.pf);
+    const s=pm==null?null:pm>=0.5?'standing':'lying';
+    c.ml.textContent=!hasModel?'No model':me&&!live?'No signal':!me&&P.mismatch?'Rate mismatch':s?s.toUpperCase():'Listening…';
+    c.ml.style.color=s==='standing'?css('--stand'):s==='lying'?css('--lie'):css('--muted');
+    c.ff.textContent=!hasModel?'Train a posture model to classify signals.'
+      :!me&&P.mismatch?`Their sample rate differs from your ${cfg.fs} Hz setting.`
+      :`ML ${pm==null?'–':pm.toFixed(2)} · FFT rule: ${pf==null?'–':(pf>=0.5?'standing':'lying')+' ('+pf.toFixed(2)+')'}`;
+    c.al.hidden=!T?.alert; if(T?.alert) c.alT.textContent=T.alert.kind==='fall'?'⚠ Possible fall':'Inactive for a long time';
+    c.stl.textContent=T?.state&&!stale?`${T.state==='standing'?'Standing':'Down (lying or sitting)'} for ${fmtDur(ts-T.since)}`:'';
+    c.tot.textContent=T?`Standing ${fmtDur(T.tot.standing)} · down ${fmtDur(T.tot.lying)} · ${T.changes} change${T.changes===1?'':'s'}`:'';
+    const r=T&&T.mdfWin.length>=10?linreg(T.mdfWin.map(w=>w.t),T.mdfWin.map(w=>w.m)):null;
+    c.mf.textContent=T?.mdfWin.length?`Median freq ${Math.round(T.mdfWin[T.mdfWin.length-1].m)} Hz`+(r?` · 60 s trend ${r.b>=0?'+':''}${r.b.toFixed(2)} Hz/s`:''):'';
+    c.st.textContent=me?(live?(SH.client?'Streaming your signal':'Monitoring you on this computer'):'Connect the ESP32 or start the demo'):(stale?`No signal for ${age} s`:'Receiving signal');
+    drawSpark(c.cv,me?ring:P.ring,me?wIdx:P.w);
+    drawTimeline(c.tl,T,ts);
+  }
+  if(!SH.client){ const d=document.createElement('div'); d.className='small'; d.textContent='Join a room to monitor other people too.'; els.push(d); }
+  box.replaceChildren(...els);
+  for(const id of [...SH.cards.keys()]) if(!ids.includes(id)) SH.cards.delete(id);
+  // people list for the fatigue test
+  const sel=$('ftWho'), cur=sel.value||SH.id;
+  const opts=ids.map(id=>[id,id===SH.id?`${$('shName').value.trim()||'Me'} (you)`:(SH.peers.get(id)?.name||'(no name)')]), sig=JSON.stringify(opts);
+  if(sel.dataset.sig!==sig){ sel.replaceChildren(...opts.map(([v,t])=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; return o; }));
+    sel.dataset.sig=sig; sel.value=opts.some(o=>o[0]===cur)?cur:SH.id; }
+}
+
+/* ---------------- Monitoring: posture timeline, fall and inactivity alerts ---------------- */
+const TRK=new Map(); // person id -> tracker (you + everyone streaming in the room)
+const fmtDur=s=>{ s=Math.max(0,Math.round(s)); if(s<60) return `${s} s`; if(s<3600) return `${Math.floor(s/60)} min ${String(s%60).padStart(2,'0')} s`; return `${Math.floor(s/3600)} h ${Math.floor(s%3600/60)} min`; };
+function linreg(xs,ys){
+  const n=xs.length; if(n<3) return null; const mx=avg(xs), my=avg(ys); let sxy=0,sxx=0,syy=0;
+  for(let i=0;i<n;i++){ const dx=xs[i]-mx, dy=ys[i]-my; sxy+=dx*dy; sxx+=dx*dx; syy+=dy*dy; }
+  if(!sxx) return null; const b=sxy/sxx; return {b,a:my-b*mx,r2:syy?sxy*sxy/(sxx*syy):0};
+}
+function alCfg(){ return {fall:$('alFall').checked,win:Math.max(0.5,+$('alFallWin').value||1.5),confirm:Math.max(3,+$('alConfirm').value||15),inactive:Math.max(0.5,+$('alInactive').value||30),voice:$('alVoice').checked}; }
+function tracker(id){ let T=TRK.get(id); if(!T){ T={id,name:'',sec:[],acc:null,state:null,since:null,tot:{standing:0,lying:0},changes:0,lastT:null,recent:[],fallCand:null,alert:null,inactiveDone:false,mdfWin:[]}; TRK.set(id,T); } return T; }
+function trackWindow(id,name,p,F){
+  if(p==null) return;
+  const now=Date.now()/1000, T=tracker(id), C=alCfg(); T.name=name;
+  const sec=Math.floor(now); // one timeline entry per second, kept for 10 minutes
+  if(!T.acc||T.acc.t!==sec){ if(T.acc?.n) T.sec.push({t:T.acc.t,p:T.acc.p/T.acc.n}); T.acc={t:sec,p:0,n:0}; while(T.sec.length&&T.sec[0].t<now-600) T.sec.shift(); }
+  T.acc.p+=p; T.acc.n++;
+  const prev=T.state; let st=prev||(p>=0.5?'standing':'lying'); if(p>0.6) st='standing'; else if(p<0.4) st='lying'; // hysteresis
+  if(T.lastT!=null&&prev) T.tot[prev]+=Math.min(5,now-T.lastT);
+  T.lastT=now;
+  if(st!==prev){ if(prev) T.changes++; T.state=st; T.since=now; T.inactiveDone=false; if(st==='standing'&&T.alert){ T.alert=null; T.fallCand=null; } }
+  // possible fall: P(standing) drops from >0.8 to <0.2 within C.win seconds and stays down for C.confirm seconds
+  T.recent.push({t:now,p}); while(T.recent.length&&T.recent[0].t<now-C.win) T.recent.shift();
+  if(C.fall){
+    if(!T.fallCand&&p<0.2&&T.recent.some(r=>r.p>0.8)) T.fallCand=now;
+    if(T.fallCand){ if(p>0.5) T.fallCand=null;
+      else if(now-T.fallCand>=C.confirm&&!T.alert) raiseAlert(T,'fall',`Possible fall: ${name}. Went from standing to down in under ${C.win} s and still down after ${Math.round(now-T.fallCand)} s.`); }
+  } else T.fallCand=null;
+  if(T.state==='lying'&&!T.inactiveDone&&!T.alert&&now-T.since>=C.inactive*60){ T.inactiveDone=true; raiseAlert(T,'inactive',`Inactivity: ${name}. Down (lying or sitting) for ${fmtDur(now-T.since)}.`); }
+  T.mdfWin.push({t:now,m:F.mdf}); while(T.mdfWin.length&&T.mdfWin[0].t<now-60) T.mdfWin.shift();
+}
+function raiseAlert(T,kind,text){
+  T.alert={kind,text,t:Date.now()/1000};
+  for(let i=0;i<3;i++) setTimeout(beep,i*350);
+  say(alCfg().voice,kind==='fall'?`Alert. Possible fall. ${T.name}.`:`Reminder. ${T.name}, inactive for a while.`);
+  renderAlerts();
+}
+function dismissAlert(id){ const T=TRK.get(id); if(!T) return; T.alert=null; T.fallCand=null; renderAlerts(); }
+let titleFlash=0;
+function renderAlerts(){ // banner on every tab
+  const bar=$('alertBar'), list=[...TRK.values()].filter(T=>T.alert);
+  bar.hidden=!list.length;
+  bar.replaceChildren(...list.map(T=>{ const d=document.createElement('div'); d.className='alert-item'+(T.alert.kind==='fall'?' fall':'');
+    const s=document.createElement('span'); s.textContent=T.alert.text;
+    const b=document.createElement('button'); b.type='button'; b.textContent='Dismiss'; b.onclick=()=>dismissAlert(T.id);
+    d.append(s,b); return d; }));
+  document.title=list.length&&++titleFlash%2?'⚠ ALERT · EMG Posture Lab':'EMG Posture Lab';
+}
+setInterval(renderAlerts,1000);
+
+/* ---------------- Muscle fatigue test: median frequency falls as a muscle tires ---------------- */
+const FAT={running:false,id:null,name:'',t0:0,pts:[],res:null};
+function fatWindow(id,F){ if(FAT.running&&FAT.id===id) FAT.pts.push({t:Date.now()/1000-FAT.t0,mdf:F.mdf,rms:F.rms}); }
+function fatStart(){
+  const sel=$('ftWho'), id=sel.value||SH.id, name=sel.selectedOptions[0]?.textContent||'You';
+  if(id===SH.id&&!(port||demoTimer)){ alert('Connect the ESP32 or start the demo signal first.'); return; }
+  Object.assign(FAT,{running:true,id,name,t0:Date.now()/1000,pts:[],res:null});
+  $('ftStart').disabled=true; $('ftStop').disabled=false; $('ftExport').disabled=true;
+  $('ftResult').textContent='Running. Hold the calf raise as long as you can, then press Stop.';
+  if(demoTimer&&id===SH.id) setDemoState('raise'); // demo: simulate a tiring calf
+}
+function fatStop(){
+  FAT.running=false; FAT.res=fatAnalyze();
+  $('ftStart').disabled=false; $('ftStop').disabled=true; $('ftExport').disabled=!FAT.pts.length;
+  $('ftResult').textContent=`${FAT.name}: ${fatText(FAT.res)}`;
+}
+function fatAnalyze(){
+  const pts=FAT.pts; if(pts.length<10) return null;
+  const med=pts.map(p=>p.rms).sort((a,b)=>a-b)[pts.length>>1], used=pts.filter(p=>p.rms>=0.3*med); // ignore resting windows
+  const r=linreg(used.map(p=>p.t),used.map(p=>p.mdf)); if(!r) return null;
+  const t0=used[0].t, t1=used[used.length-1].t, start=r.a+r.b*t0;
+  return {...r,used,dur:t1-t0,start,end:r.a+r.b*t1,pctMin:r.b*60/start*100,
+    rmsFirst:avg(used.filter(p=>p.t<t0+10).map(p=>p.rms)),rmsLast:avg(used.filter(p=>p.t>t1-10).map(p=>p.rms))};
+}
+function fatText(R){
+  if(!R) return 'Not enough contraction data yet. Hold the calf raise longer.';
+  let s=`Median frequency went from ${R.start.toFixed(0)} Hz to ${R.end.toFixed(0)} Hz over ${R.dur.toFixed(0)} s.\n`+
+    `Fatigue slope: ${R.b.toFixed(3)} Hz/s (${R.pctMin.toFixed(1)}% per minute), fit R² = ${R.r2.toFixed(2)}.\n`+
+    `Signal size (RMS): ${R.rmsFirst.toFixed(1)} → ${R.rmsLast.toFixed(1)} ADC counts.`;
+  s+=R.b<-0.05&&R.r2>0.3?'\nClear fatigue: the median frequency fell steadily, the classic EMG sign of a tiring muscle. Rising RMS is common too, as more muscle fibres are recruited.'
+    :R.b<0?'\nA slight downward trend. Hold longer or push harder for a clearer result.'
+    :'\nNo fatigue trend. The muscle may not have worked hard enough, or the hold was too short.';
+  return s;
+}
+function drawFatigue(){
+  const [g,W,H]=fit($('cFat')); g.clearRect(0,0,W,H); g.font='12px system-ui';
+  const P=FAT.pts; if(!P.length){ g.fillStyle=css('--muted'); g.fillText('No test yet.',12,22); return; }
+  const LM=44, R=W-12, T=10, B=H-24, tmax=Math.max(10,P[P.length-1].t);
+  let lo=Infinity, hi=-Infinity; for(const p of P){ lo=Math.min(lo,p.mdf); hi=Math.max(hi,p.mdf); } lo=Math.max(0,lo-10); hi+=10;
+  const X=t=>LM+t/tmax*(R-LM), Y=v=>B-(v-lo)/(hi-lo)*(B-T);
+  g.strokeStyle='#e5e1d1'; g.fillStyle=css('--muted');
+  for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4; g.beginPath(); g.moveTo(LM,Y(v)); g.lineTo(R,Y(v)); g.stroke(); g.fillText(v.toFixed(0),4,Y(v)+4); }
+  const step=tmax>120?30:tmax>40?10:5;
+  for(let t=0;t<=tmax;t+=step){ g.fillText(`${t}s`,X(t)-8,H-6); }
+  const used=new Set(FAT.res?.used||[]);
+  for(const p of P){ g.fillStyle=used.has(p)?css('--accent'):'#aaa690'; g.beginPath(); g.arc(X(p.t),Y(p.mdf),2.2,0,Math.PI*2); g.fill(); }
+  if(FAT.res){ const r=FAT.res, t0=r.used[0].t, t1=r.used[r.used.length-1].t;
+    g.strokeStyle=css('--lie'); g.lineWidth=2; g.beginPath(); g.moveTo(X(t0),Y(r.a+r.b*t0)); g.lineTo(X(t1),Y(r.a+r.b*t1)); g.stroke(); g.lineWidth=1; }
+    g.fillStyle=css('--accent'); g.fillText('● median frequency (Hz)',LM+10,14); g.fillStyle=css('--lie'); g.fillText('— fatigue trend',LM+170,14);
+  g.fillStyle='#857f69'; g.fillText('● resting (ignored)',LM+280,14);
+}
+function fatExport(){
+  if(!FAT.pts.length) return; const used=new Set(FAT.res?.used||[]);
+  const lines=[`# person=${FAT.name.replace(/[\r\n,]/g,' ')}; slope_hz_per_s=${FAT.res?.b??''}; r2=${FAT.res?.r2??''}`,'time_s,median_freq_hz,rms,used'];
+  for(const p of FAT.pts) lines.push([p.t.toFixed(3),p.mdf.toFixed(2),p.rms.toFixed(2),used.has(p)?1:0].join(','));
+  download(lines.join('\n'),'text/csv',`emg_fatigue_${stamp()}.csv`);
+}
+setInterval(()=>{
+  if(activeTab!=='tabShare') return;
+  renderPeople();
+  if(FAT.running){ FAT.res=fatAnalyze(); $('ftResult').textContent=`Running (${Math.round(Date.now()/1000-FAT.t0)} s). `+fatText(FAT.res); }
+},500);
+
+
+/* ---------------- Tabs ---------------- */
+let activeTab='tabTrain';
+function showTab(id){
+  if(!$(id)) id='tabTrain'; activeTab=id;
+  document.querySelectorAll('main.tab').forEach(m=>m.hidden=m.id!==id);
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===id)));
+  try{ localStorage.setItem('emgPosture.tab',id); }catch{}
+}
+
+function frame(){
+  if(activeTab==='tabTrain'){ drawSignal(); drawSpectrum(); drawHistory(); updateState(); updateCounts(); }
+  else if(activeTab==='tabTest'){ updateDetCards(); PT.draw(); }
+  else if(activeTab==='tabTap'){ updateTapUI(); }
+  else if(activeTab==='tabFlex'){ updateFlexUI(); }
+  else if(FLEX.cal) flexCalTick();
+  else if(activeTab==='tabShare'){ drawFatigue(); }
+  requestAnimationFrame(frame);
+}
+
+setInterval(()=>{ const p=$('fsPill'); p.textContent=`${sampleCount} samples/s`;
+  const bad=sampleCount>0&&Math.abs(sampleCount-cfg.fs)>0.1*cfg.fs; p.classList.toggle('warn',bad); p.classList.toggle('on',sampleCount>0&&!bad);
+  p.title=bad?'Measured rate differs from the configured sample rate by >10%':''; sampleCount=0; },1000);
+
+/* ---------------- Wiring ---------------- */
+$('btnConnect').onclick=connect;
+$('btnDisconnect').onclick=disconnect;
+$('btnDemo').onclick=()=>demoTimer?stopDemo():startDemo();
+$('demoStand').onclick=()=>setDemoState('standing');
+$('demoLie').onclick=()=>setDemoState('lying');
+$('demoTap').onclick=()=>setDemoState('tapping');
+$('demoRaise').onclick=()=>setDemoState('raise');
+$('demoFlexBtn').onclick=()=>setDemoState('flex');
+$('demoFlex').oninput=()=>{ if(demoState!=='flex') setDemoState('flex'); };
+$('btnApply').onclick=applyConfig;
+$('recStand').onclick=()=>startRecording('standing');
+$('recLie').onclick=()=>startRecording('lying');
+$('recStop').onclick=stopRecording;
+$('btnExport').onclick=exportCSV;
+$('btnImport').onclick=()=>$('fileIn').click();
+$('fileIn').onchange=async e=>{ const f=e.target.files[0]; if(f) importCSV(await f.text()); e.target.value=''; };
+$('btnClear').onclick=()=>{ if(confirm('Delete all recorded windows? (Your trained model is kept.)')){ dataset=[]; segCounter=0; persistData(); $('trainTable').innerHTML=''; $('trainMsg').textContent='Data cleared. Model kept.'; } };
+$('btnTrain').onclick=train;
+$('btnSaveModel').onclick=saveModelFile;
+$('btnLoadModel').onclick=()=>$('modelIn').click();
+$('modelIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{ useModel(JSON.parse(await f.text())); }catch(err){ $('trainMsg').textContent='Could not load model: '+err.message; $('trainMsg').classList.add('err'); } };
+navigator.serial?.addEventListener('disconnect',e=>{ if(e.target===port) disconnect(); });
+
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+const PT=makeTester({p:'t',canvas:'cTest',pos:'standing',neg:'lying',
+  names:{standing:'Standing',lying:'Lying'},cue:{standing:'STAND',lying:'LIE DOWN'},say:{standing:'Stand up',lying:'Lie down'},demo:{standing:'standing',lying:'lying'},
+  ready:()=>!model||model.key!==cfgKey()?'Train or load a posture model first (Record & Train tab).':!model.fftRule?'This model has no FFT rule because it was saved by an older version of the page. Train it once more.':null,
+  pm:()=>avg(pHist),pf:()=>avg(fHist),rule:()=>model.fftRule,nFeat:()=>model.w.length});
+const KT=makeTester({p:'k',canvas:'cTapTest',pos:'tapping',neg:'still',
+  names:{tapping:'Tapping',still:'Still'},cue:{tapping:'TAP',still:'STILL'},say:{tapping:'Start tapping',still:'Stop and keep still'},demo:{tapping:'tapping',still:'lying'},
+  ready:()=>!TAP.model||TAP.model.key!==cfgKey()?'Train a tap model first (section 2 on this tab).':null,
+  pm:()=>avg(TAP.pHist),pf:()=>TAP.model?.fftRule?avg(TAP.fHist):null,rule:()=>TAP.model.fftRule||{name:'n/a',dir:1,thr:0},nFeat:()=>TAP.model.w.length});
+$('fftFeat').onchange=()=>{
+  if(!model) return;
+  const items=dataset.filter(d=>d.key===cfgKey());
+  if(!items.some(d=>d.label==='standing')||!items.some(d=>d.label==='lying')){ alert('Recorded data is needed to recalibrate the FFT rule. Record or import data, then choose again.'); return; }
+  const r=fitFFTRule(items,$('fftFeat').value); if(r){ model.fftRule=r; model.fftHeldOutAcc=null; fHist=[]; persistModel(); }
+};
+$('shJoin').onclick=shJoin;
+$('shLeave').onclick=shLeave;
+$('shNewRoom').onclick=()=>{ $('shRoom').value='ROOM-'+randCode(8); shPrefs(true); };
+$('shCopy').onclick=()=>navigator.clipboard.writeText($('shRoom').value).then(()=>shMsg('Room code copied. Send it to the people you want to share with.'),()=>shMsg('Copy failed. Select the code and copy it by hand.',true));
+$('shName').onchange=()=>shPrefs(true);
+$('ftStart').onclick=fatStart;
+$('ftStop').onclick=fatStop;
+$('ftExport').onclick=fatExport;
+$('kRecTap').onclick=()=>tapStartRec('tapping');
+$('kRecStill').onclick=()=>tapStartRec('still');
+$('kRecStop').onclick=tapStopRec;
+$('kClear').onclick=()=>{ if(confirm('Delete all tap recordings? (The tap model is kept.)')){ TAP.dataset=[]; TAP.seg=0; tapPersistData(); } };
+$('kTrain').onclick=tapTrain;
+$('kSave').onclick=()=>{ if(TAP.model) download(JSON.stringify(TAP.model,null,2),'application/json',`emg_tap_model_${stamp()}.json`); };
+$('kLoad').onclick=()=>$('kModelIn').click();
+$('kModelIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{ const m=JSON.parse(await f.text()); if(m.type!=='emg-tap-logreg'||!Array.isArray(m.w)||!m.cfg) throw new Error('Not a tap model file.');
+    m.key=keyOf(m.cfg); TAP.model=m; TAP.pHist=[]; TAP.fHist=[]; tapPersistModel(); tapShowInfo(); $('kTrainMsg').classList.remove('err'); $('kTrainMsg').textContent='Tap model loaded.'; }
+  catch(err){ $('kTrainMsg').textContent='Could not load: '+err.message; $('kTrainMsg').classList.add('err'); } };
+
+$('xCal').onclick=flexCalStart;
+$('xCalStop').onclick=()=>flexCalStop(false);
+$('xRec').onclick=()=>{ if(FLEX.cal) return; flexStopRec(); flexStartRec(+$('xLevel').value,Math.max(2,+$('xRecDur').value||8),Math.max(0,+$('xSettle').value||0)); };
+$('xRecStop').onclick=flexStopRec;
+$('xClear').onclick=()=>{ if(confirm('Delete all flex recordings? (The flex model is kept.)')){ FLEX.dataset=[]; FLEX.seg=0; flexPersistData(); } };
+$('xTrain').onclick=flexTrain;
+$('xSave').onclick=()=>{ if(FLEX.model) download(JSON.stringify(FLEX.model,null,2),'application/json',`emg_flex_model_${stamp()}.json`); };
+$('xLoad').onclick=()=>$('xModelIn').click();
+$('xModelIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{ const m=JSON.parse(await f.text()); if(m.type!=='emg-flex-ridge'||!Array.isArray(m.w)||!m.cfg||!m.curve) throw new Error('Not a flex model file.');
+    m.key=keyOf(m.cfg); FLEX.model=m; FLEX.level=null; flexPersistModel(); flexShowInfo(); flexFitTable(FLEX.dataset.filter(d=>d.key===cfgKey())); $('xTrainMsg').classList.remove('err'); $('xTrainMsg').textContent='Flex model loaded.'; }
+  catch(err){ $('xTrainMsg').textContent='Could not load: '+err.message; $('xTrainMsg').classList.add('err'); } };
+
+applyConfig();
+restoreFromStorage();
+shPrefs(); tapRestore(); flexRestore();
+try{ showTab(localStorage.getItem('emgPosture.tab')||'tabTrain'); }catch{ showTab('tabTrain'); }
+window.EMG={loadMqtt,randCode,css,broker:()=>$('shBroker').value.trim(),name:()=>$('shName').value.trim(),
+  tapReady:()=>!!(TAP.model&&TAP.model.key===cfgKey()&&(port||demoTimer)),activeTab:()=>activeTab,
+  flex:()=>({ready:flexReady(),level:flexReady()?FLEX.level:null,method:$('xMethod').value,trained:!!FLEX.model}),
+  flexCal:{start:flexCalStart,stop:()=>flexCalStop(false),state:()=>FLEX.cal?{plan:FLEX.cal.plan,i:FLEX.cal.i,dur:FLEX.cal.dur,lead:FLEX.cal.lead,t0:FLEX.cal.t0}:null}};
+requestAnimationFrame(frame);
+</script>
+<script src="brawl3d.js"></script>
+<script src="game.js"></script>
+<script src="eyes.js"></script>
+<script src="usc-data.js"></script>
+<script src="la-data.js"></script>
+<script src="sounds-data.js"></script>
+<script src="hands.js"></script>
+<script src="race.js"></script>
+<script>
+// Buttons with data-fs="elementId" toggle fullscreen on that element (Tap Brawl stage, eye target practice). Sky Race has its own, with a menu for eye users.
+document.addEventListener('click',e=>{ const b=e.target.closest?.('[data-fs]'); if(!b) return; const el=document.getElementById(b.dataset.fs); if(!el) return;
+  if(document.fullscreenElement) document.exitFullscreen?.(); else el.requestFullscreen?.({navigationUI:'hide'}).catch(()=>{}); });
+for(const b of document.querySelectorAll('[data-fs]')) b.dataset.label=b.textContent;
+document.addEventListener('fullscreenchange',()=>{ for(const b of document.querySelectorAll('[data-fs]')){ const on=document.fullscreenElement&&document.fullscreenElement.id===b.dataset.fs; b.textContent=on?'Exit fullscreen':b.dataset.label; } });
+</script>
+</body>
+</html>

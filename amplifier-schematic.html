@@ -1,0 +1,365 @@
+<title>Calf EMG Front End</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one wide schematic sheet, then parts list and design math beneath it, like a lab notebook page. */
+:root{
+  --bg:#f5f7f8; --sheet:#ffffff; --fg:#1b2730; --muted:#5b6973; --line:#cdd6dc;
+  --accent:#0a7a8a; --net:#b4561a;
+  --sans:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ color-scheme:dark;
+    --bg:#0f1519; --sheet:#151d22; --fg:#dae3e9; --muted:#8e9ca6; --line:#2c3943; --accent:#3cc3d3; --net:#f0a25c; }
+}
+:root[data-theme="dark"]{ color-scheme:dark;
+  --bg:#0f1519; --sheet:#151d22; --fg:#dae3e9; --muted:#8e9ca6; --line:#2c3943; --accent:#3cc3d3; --net:#f0a25c; }
+
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--sans);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font-size:28px;font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px}
+p{margin:0;max-width:68ch}
+.lede{display:flex;flex-direction:column;gap:8px}
+.specs{display:flex;flex-wrap:wrap;gap:8px 20px;font:13px var(--mono);color:var(--muted)}
+.specs b{color:var(--fg);font-weight:500}
+figure{margin:0;background:var(--sheet);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.scroll{overflow-x:auto}
+figure svg{display:block;width:100%;min-width:1080px;height:auto;color:var(--fg)}
+figcaption{border-top:1px solid var(--line);padding:12px 16px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 22px}
+.key{display:inline-flex;align-items:center;gap:8px}
+.key i{display:inline-block;width:22px;height:0;border-top:2.5px solid var(--accent)}
+.key i.n{border-top:0;width:auto;height:auto;font:500 12px var(--mono);font-style:normal;color:var(--net)}
+
+/* schematic classes */
+.w{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.s{stroke:var(--accent);stroke-width:2.2}
+.p{fill:var(--sheet);stroke:currentColor;stroke-width:1.6}
+.op{fill:var(--sheet);stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.d{fill:currentColor}
+.ds{fill:var(--accent)}
+.fr{fill:none;stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5}
+.t{font:500 13px var(--mono);fill:currentColor}
+.v{font:12px var(--mono);fill:var(--muted)}
+.pin{font:10px var(--mono);fill:var(--muted)}
+.hd{font:600 12px var(--sans);letter-spacing:.07em;fill:currentColor;text-transform:uppercase}
+.sub{font:12px var(--sans);fill:var(--muted)}
+.net{font:500 12px var(--mono);fill:var(--net)}
+.sign{font:600 14px var(--mono);fill:currentColor}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:28px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+td.m{font-family:var(--mono);font-size:13px;white-space:nowrap}
+.math{display:flex;flex-direction:column;gap:14px}
+.eq{display:flex;flex-direction:column;gap:2px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.eq span{font-size:13px;color:var(--muted)}
+.eq code{font:14px var(--mono);color:var(--fg)}
+.eq code b{color:var(--accent);font-weight:500}
+ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;max-width:80ch}
+</style>
+
+<div class="wrap">
+  <header class="lede">
+    <h1>Calf EMG Front End</h1>
+    <p>A surface EMG amplifier on a single 3.3 V supply, made to feed the ESP32-S3 ADC. Electrodes on the calf go through an instrumentation amp, a 20 Hz high-pass, a 500 Hz anti-alias low-pass and an AC-coupled final gain stage. The output sits at 1.65 V, the middle of the ADC range.</p>
+    <div class="specs">
+      <span>Total gain <b>≈ 1,110</b></span>
+      <span>Passband <b>20 – 500 Hz</b></span>
+      <span>Output bias <b>1.65 V ≈ 2,180 counts</b></span>
+      <span>Sample at <b>2 kHz</b></span>
+    </div>
+  </header>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 70 1480 630" role="img" aria-label="Schematic: calf electrodes through 10k resistors into an INA333 with gain 11, then a 20 Hz Sallen-Key high-pass, a 500 Hz Sallen-Key low-pass, a gain-of-101 non-inverting stage whose 1k gain resistor returns to VREF through 47 µF, and a 100 ohm resistor into ESP32-S3 GPIO1. A buffered 10k/10k divider makes the 1.65 V VREF used by the reference electrode and every stage.">
+
+      <!-- ===== Stage frames ===== -->
+      <rect class="fr" x="16"   y="80" width="354" height="390" rx="10"/>
+      <rect class="fr" x="380"  y="80" width="342" height="390" rx="10"/>
+      <rect class="fr" x="732"  y="80" width="380" height="390" rx="10"/>
+      <rect class="fr" x="1122" y="80" width="160" height="390" rx="10"/>
+      <rect class="fr" x="16"   y="490" width="404" height="200" rx="10"/>
+      <rect class="fr" x="440"  y="490" width="1026" height="200" rx="10"/>
+
+      <text class="hd" x="32" y="104">1 · Instrumentation amp</text>
+      <text class="sub" x="32" y="121">G = 1 + 100k / RG ≈ 11</text>
+      <text class="hd" x="396" y="104">2 · High-pass 20 Hz</text>
+      <text class="sub" x="396" y="121">Sallen-Key, Butterworth</text>
+      <text class="hd" x="748" y="104">3 · Low-pass 500 Hz</text>
+      <text class="sub" x="748" y="121">Sallen-Key, anti-alias</text>
+      <text class="hd" x="1138" y="104">4 · Gain ×101</text>
+      <text class="sub" x="1138" y="121">Non-inverting, AC-coupled</text>
+      <text class="hd" x="32" y="514">0 · Mid-rail reference</text>
+      <text class="sub" x="32" y="531">VREF = 1.65 V</text>
+      <text class="hd" x="456" y="514">Power filtering</text>
+      <text class="sub" x="456" y="531">Quiets ESP32 Wi-Fi noise on the analog rail</text>
+
+      <!-- ===== Stage 1: electrodes + INA333 ===== -->
+      <!-- electrodes -->
+      <circle class="p" cx="44" cy="194" r="9"/><circle class="d" cx="44" cy="194" r="3"/>
+      <circle class="p" cx="44" cy="376" r="9"/><circle class="d" cx="44" cy="376" r="3"/>
+      <circle class="p" cx="44" cy="446" r="9"/><circle class="d" cx="44" cy="446" r="3"/>
+      <text class="t" x="32" y="174">Calf +</text>
+      <text class="t" x="32" y="404">Calf −</text>
+      <text class="t" x="70" y="432">Shin (ref)</text>
+      <path class="w" d="M53 446 H96"/>
+      <text class="net" x="102" y="450">VREF</text>
+
+      <!-- input resistors -->
+      <path class="w s" d="M53 194 H70 M110 194 H170"/>
+      <rect class="p" x="70" y="186" width="40" height="16"/>
+      <text class="v" x="90" y="218" text-anchor="middle">10k</text>
+      <path class="w s" d="M53 376 H70 M110 376 H170"/>
+      <rect class="p" x="70" y="368" width="40" height="16"/>
+      <text class="v" x="90" y="362" text-anchor="middle">10k</text>
+
+      <!-- INA333 package outline -->
+      <rect x="150" y="150" width="212" height="270" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text class="t" x="356" y="168" text-anchor="end">U2 INA333</text>
+
+      <!-- A1 / A2 input amps; RG sets their gain through the internal 50k feedback resistors -->
+      <polygon class="op" points="170,182 170,228 220,205"/>
+      <text class="sign" x="173" y="198">+</text><text class="sign" x="173" y="221">−</text>
+      <text class="pin" x="192" y="209">A1</text>
+      <polygon class="op" points="170,342 170,388 220,365"/>
+      <text class="sign" x="173" y="358">−</text><text class="sign" x="173" y="381">+</text>
+      <text class="pin" x="192" y="369">A2</text>
+      <!-- A1 feedback: output → 50k → inverting input → RG pin 1 -->
+      <path class="w" d="M220 205 H256 M240 205 V222 M240 250 V262 H160 V216 H170"/>
+      <rect class="p" x="234" y="222" width="12" height="28"/>
+      <text class="pin" x="230" y="242" text-anchor="end">50k</text>
+      <!-- A2 feedback: output → 50k → inverting input → RG pin 8 -->
+      <path class="w" d="M220 365 H256 M240 365 V348 M240 320 V308 H160 V354 H170"/>
+      <rect class="p" x="234" y="320" width="12" height="28"/>
+      <text class="pin" x="230" y="338" text-anchor="end">50k</text>
+      <circle class="d" cx="240" cy="205" r="3"/><circle class="d" cx="240" cy="365" r="3"/>
+      <circle class="d" cx="160" cy="262" r="3"/><circle class="d" cx="160" cy="308" r="3"/>
+
+      <!-- RG (external) between pin 1 and pin 8 -->
+      <path class="w" d="M160 262 H136 V268 M136 302 V308 H160"/>
+      <rect class="p" x="128" y="268" width="16" height="34"/>
+      <text class="v" x="122" y="284" text-anchor="end">RG</text>
+      <text class="v" x="122" y="298" text-anchor="end">10k</text>
+      <text class="pin" x="146" y="258" text-anchor="end">1</text>
+      <text class="pin" x="146" y="322" text-anchor="end">8</text>
+      <text class="pin" x="146" y="190" text-anchor="end">3</text>
+      <text class="pin" x="146" y="372" text-anchor="end">2</text>
+
+      <!-- A3 difference amp (gain 1) -->
+      <path class="w" d="M256 205 V244 H272 M256 365 V276 H272"/>
+      <polygon class="op" points="272,228 272,292 330,260"/>
+      <text class="sign" x="275" y="249">+</text><text class="sign" x="275" y="281">−</text>
+      <text class="pin" x="292" y="264">A3</text>
+      <path class="w" d="M300 277 V438"/>
+      <text class="pin" x="306" y="434">5</text>
+      <text class="pin" x="306" y="412">REF</text>
+      <text class="net" x="300" y="456" text-anchor="middle">VREF</text>
+      <text class="pin" x="366" y="254">6</text>
+      <path class="w s" d="M330 260 H395"/>
+
+      <!-- ===== Stage 2: high-pass (U1B) ===== -->
+      <!-- C1 -->
+      <path class="w" d="M395 246 V274 M403 246 V274"/>
+      <text class="v" x="399" y="238" text-anchor="middle">100n</text>
+      <path class="w s" d="M403 260 H495"/>
+      <!-- C2 -->
+      <path class="w" d="M495 246 V274 M503 246 V274"/>
+      <text class="v" x="499" y="238" text-anchor="middle">100n</text>
+      <path class="w s" d="M503 260 H600"/>
+      <circle class="ds" cx="455" cy="260" r="3.5"/>
+      <circle class="ds" cx="560" cy="260" r="3.5"/>
+      <!-- R1 feedback 56k -->
+      <path class="w" d="M455 260 V170 H545 M589 170 H710"/>
+      <rect class="p" x="545" y="162" width="44" height="16"/>
+      <text class="v" x="567" y="154" text-anchor="middle">56k</text>
+      <!-- R2 110k to VREF -->
+      <path class="w" d="M560 260 V290 M560 334 V380"/>
+      <rect class="p" x="552" y="290" width="16" height="44"/>
+      <text class="v" x="546" y="316" text-anchor="end">110k</text>
+      <text class="net" x="560" y="396" text-anchor="middle">VREF</text>
+
+      <polygon class="op" points="600,235 600,335 690,285"/>
+      <text class="sign" x="606" y="265">+</text>
+      <text class="sign" x="606" y="315">−</text>
+      <text class="t" x="632" y="290" text-anchor="middle">U1B</text>
+      <text class="pin" x="594" y="254" text-anchor="end">5</text>
+      <text class="pin" x="594" y="324" text-anchor="end">6</text>
+      <text class="pin" x="694" y="279">7</text>
+      <!-- follower + output bus -->
+      <path class="w" d="M600 310 H585 V360 H710 V170"/>
+      <path class="w s" d="M690 285 H710 M710 285 V260 H750"/>
+      <circle class="d" cx="710" cy="285" r="3.5"/>
+      <circle class="ds" cx="710" cy="260" r="3.5"/>
+
+      <!-- ===== Stage 3: low-pass (U1C) ===== -->
+      <rect class="p" x="750" y="252" width="44" height="16"/>
+      <text class="v" x="772" y="244" text-anchor="middle">10k</text>
+      <path class="w s" d="M794 260 H870"/>
+      <rect class="p" x="870" y="252" width="44" height="16"/>
+      <text class="v" x="892" y="244" text-anchor="middle">10k</text>
+      <path class="w s" d="M914 260 H990"/>
+      <circle class="ds" cx="840" cy="260" r="3.5"/>
+      <circle class="ds" cx="950" cy="260" r="3.5"/>
+      <!-- C3 47n feedback -->
+      <path class="w" d="M840 260 V214 M826 214 H854 M826 206 H854 M840 206 V170 H1100"/>
+      <text class="v" x="860" y="214">47n</text>
+      <!-- C4 22n to VREF -->
+      <path class="w" d="M950 260 V300 M936 300 H964 M936 308 H964 M950 308 V380"/>
+      <text class="v" x="930" y="308" text-anchor="end">22n</text>
+      <text class="net" x="950" y="396" text-anchor="middle">VREF</text>
+
+      <polygon class="op" points="990,235 990,335 1080,285"/>
+      <text class="sign" x="996" y="265">+</text>
+      <text class="sign" x="996" y="315">−</text>
+      <text class="t" x="1022" y="290" text-anchor="middle">U1C</text>
+      <text class="pin" x="984" y="254" text-anchor="end">10</text>
+      <text class="pin" x="984" y="324" text-anchor="end">9</text>
+      <text class="pin" x="1084" y="279">8</text>
+      <path class="w" d="M990 310 H975 V360 H1100 V170"/>
+      <path class="w s" d="M1080 285 H1100 M1100 285 V260 H1150"/>
+      <circle class="d" cx="1100" cy="285" r="3.5"/>
+      <circle class="ds" cx="1100" cy="260" r="3.5"/>
+
+      <!-- ===== Stage 4: gain (U1D) ===== -->
+      <polygon class="op" points="1150,235 1150,335 1240,285"/>
+      <text class="sign" x="1156" y="265">+</text>
+      <text class="sign" x="1156" y="315">−</text>
+      <text class="t" x="1182" y="290" text-anchor="middle">U1D</text>
+      <text class="pin" x="1146" y="254" text-anchor="end">12</text>
+      <text class="pin" x="1146" y="304" text-anchor="end">13</text>
+      <text class="pin" x="1244" y="279">14</text>
+      <path class="w" d="M1150 310 H1135 V392 M1135 380 H1165 M1209 380 H1260 V285"/>
+      <circle class="d" cx="1135" cy="380" r="3.5"/>
+      <rect class="p" x="1165" y="372" width="44" height="16"/>
+      <text class="v" x="1187" y="364" text-anchor="middle">Rf 100k</text>
+      <rect class="p" x="1127" y="392" width="16" height="30"/>
+      <text class="v" x="1151" y="412">Rg 1k</text>
+      <path class="w" d="M1135 422 V430 M1121 430 H1149 M1121 437 H1149 M1135 437 V446"/>
+      <text class="v" x="1155" y="438">Cg 47µ</text>
+      <text class="net" x="1135" y="462" text-anchor="middle">VREF</text>
+      <path class="w s" d="M1240 285 H1290 M1330 285 H1380"/>
+      <circle class="ds" cx="1260" cy="285" r="3.5"/>
+
+      <!-- output resistor + ESP32 -->
+      <rect class="p" x="1290" y="277" width="40" height="16"/>
+      <text class="v" x="1310" y="269" text-anchor="middle">100Ω</text>
+      <rect class="p" x="1380" y="200" width="86" height="180" rx="6"/>
+      <text class="t" x="1423" y="222" text-anchor="middle">ESP32-S3</text>
+      <text class="t" x="1388" y="244">3V3</text>
+      <text class="t" x="1388" y="289">GPIO1</text>
+      <text class="t" x="1388" y="344">GND</text>
+      <path class="w" d="M1380 240 H1360"/>
+      <text class="net" x="1356" y="236" text-anchor="end">to power</text>
+      <path class="w" d="M1380 340 H1360 V352 M1348 352 H1372 M1352 357 H1368 M1356 362 H1364"/>
+
+      <!-- ===== Stage 0: mid-rail reference (U1A) ===== -->
+      <text class="net" x="70" y="560" text-anchor="middle">AFE 3V3</text>
+      <path class="w" d="M70 566 V574 M70 614 V634 M70 674 V684"/>
+      <rect class="p" x="62" y="574" width="16" height="40"/>
+      <text class="v" x="86" y="598">10k</text>
+      <rect class="p" x="62" y="634" width="16" height="40"/>
+      <text class="v" x="86" y="658">10k</text>
+      <circle class="d" cx="70" cy="624" r="3.5"/>
+      <path class="w" d="M58 684 H82 M62 689 H78 M66 694 H74"/>
+      <!-- C5 10µ -->
+      <path class="w" d="M70 624 H200 M140 624 V640 M126 640 H154 M126 648 H154 M140 648 V672 M128 672 H152 M132 677 H148 M136 682 H144"/>
+      <circle class="d" cx="140" cy="624" r="3.5"/>
+      <text class="v" x="160" y="650">10µ</text>
+      <polygon class="op" points="200,604 200,674 270,639"/>
+      <text class="sign" x="205" y="629">+</text>
+      <text class="sign" x="205" y="665">−</text>
+      <text class="t" x="225" y="644" text-anchor="middle">U1A</text>
+      <text class="pin" x="194" y="618" text-anchor="end">3</text>
+      <text class="pin" x="194" y="666" text-anchor="end">2</text>
+      <text class="pin" x="274" y="633">1</text>
+      <path class="w" d="M200 659 H188 V684 H290 V639 M270 639 H330"/>
+      <circle class="d" cx="290" cy="639" r="3.5"/>
+      <text class="net" x="336" y="643">VREF</text>
+
+      <!-- ===== Power filtering ===== -->
+      <text class="t" x="466" y="584">ESP32 3V3</text>
+      <path class="w" d="M550 580 H580 M620 580 H820"/>
+      <rect class="p" x="580" y="572" width="40" height="16"/>
+      <text class="v" x="600" y="564" text-anchor="middle">10Ω</text>
+      <circle class="d" cx="680" cy="580" r="3.5"/>
+      <circle class="d" cx="760" cy="580" r="3.5"/>
+      <path class="w" d="M680 580 V608 M666 608 H694 M666 616 H694 M680 616 V640 M668 640 H692 M672 645 H688 M676 650 H684"/>
+      <text class="v" x="700" y="616">10µ</text>
+      <path class="w" d="M760 580 V608 M746 608 H774 M746 616 H774 M760 616 V640 M748 640 H772 M752 645 H768 M756 650 H764"/>
+      <text class="v" x="780" y="616">100n</text>
+      <text class="net" x="826" y="584">AFE 3V3</text>
+
+      <text class="t" x="960" y="566">U2 INA333</text>
+      <text class="v" x="1080" y="566">pin 7 = AFE 3V3 · pin 4 = GND</text>
+      <text class="t" x="960" y="594">U1 MCP6004</text>
+      <text class="v" x="1080" y="594">pin 4 = AFE 3V3 · pin 11 = GND</text>
+      <text class="t" x="960" y="622">Decoupling</text>
+      <text class="v" x="1080" y="622">100n at each IC's supply pins</text>
+      <text class="t" x="960" y="650">Ground</text>
+      <text class="v" x="1080" y="650">all grounds join at ESP32 GND</text>
+    </svg>
+    </div>
+    <figcaption>
+      <span class="key"><i></i>Signal path</span>
+      <span class="key"><i class="n">VREF</i>All points labeled VREF are one net: the 1.65 V output of U1A</span>
+      <span>Small grey numbers are IC pin numbers. RG (pins 1 and 8) sits between the INA333's two internal input amps, A1 and A2. It is not feedback around the whole chip. U1 pin 8 is the low-pass output (U1C).</span>
+      <span>Cg makes stage 4 gain 101 for EMG but gain 1 for DC, so op amp offsets can't push the output into a rail.</span>
+    </figcaption>
+  </figure>
+
+  <div class="grid">
+    <section>
+      <h2>Parts list</h2>
+      <div class="tw">
+      <table>
+        <tr><th>Ref</th><th>Value</th><th>Purpose</th></tr>
+        <tr><td class="m">U2</td><td class="m">INA333</td><td>Instrumentation amp. Rail-to-rail on 3.3 V. It comes in MSOP-8, so mount it on a breakout board.</td></tr>
+        <tr><td class="m">U1</td><td class="m">MCP6004</td><td>Quad rail-to-rail op amp (DIP-14 available). Covers stages 0, 2, 3 and 4.</td></tr>
+        <tr><td class="m">RG</td><td class="m">10 kΩ</td><td>Sets INA gain to 11</td></tr>
+        <tr><td class="m">Input R ×2</td><td class="m">10 kΩ</td><td>Limit current into the electrodes and protect the INA inputs</td></tr>
+        <tr><td class="m">HPF caps ×2</td><td class="m">100 nF film</td><td>High-pass, 20 Hz</td></tr>
+        <tr><td class="m">HPF R</td><td class="m">56 kΩ, 110 kΩ</td><td>56k goes to the output; 110k goes to VREF</td></tr>
+        <tr><td class="m">LPF R ×2</td><td class="m">10 kΩ</td><td>Low-pass, 500 Hz</td></tr>
+        <tr><td class="m">LPF caps</td><td class="m">47 nF, 22 nF</td><td>47n is the feedback cap; 22n goes to VREF</td></tr>
+        <tr><td class="m">Rf / Rg</td><td class="m">100 kΩ / 1 kΩ</td><td>Final gain of 101. Use a 250k pot for Rf if you want to tune it.</td></tr>
+        <tr><td class="m">Cg</td><td class="m">47 µF, 6.3 V+</td><td>In series with Rg, to VREF. Blocks DC so the ×101 stage doesn't amplify op amp offsets. Ceramic X5R or a non-polar electrolytic (it sees almost no DC).</td></tr>
+        <tr><td class="m">Divider</td><td class="m">10 kΩ ×2, 10 µF</td><td>Mid-rail reference, buffered by U1A</td></tr>
+        <tr><td class="m">Power</td><td class="m">10 Ω, 10 µF, 100 nF ×2</td><td>Filters the 3.3 V rail; one 100 nF at each IC</td></tr>
+        <tr><td class="m">Electrodes</td><td class="m">Ag/AgCl gel ×3</td><td>Two on the calf muscle belly about 2 cm apart, one on the shin bone</td></tr>
+      </table>
+      </div>
+    </section>
+
+    <section class="math">
+      <h2>Design math</h2>
+      <div class="eq"><span>High-pass corner (equal C)</span><code>f = 1 / (2π · 100n · √(56k · 110k)) = <b>20.3 Hz</b>, Q = 0.70</code></div>
+      <div class="eq"><span>Low-pass corner (equal R)</span><code>f = 1 / (2π · 10k · √(47n · 22n)) = <b>495 Hz</b>, Q = 0.73</code></div>
+      <div class="eq"><span>Total gain (in the passband)</span><code>(1 + 100k/10k) · (1 + 100k/1k) = 11 · 101 = <b>1,111</b></code></div>
+      <div class="eq"><span>Stage 4 DC block (Rg + Cg)</span><code>f = 1 / (2π · 1k · 47µ) = <b>3.4 Hz</b>, well below 20 Hz; DC gain = 1</code></div>
+      <div class="eq"><span>Why Cg is needed: worst-case MCP6004 offset, 3 sections × ±4.5 mV</span><code>without Cg: ±13.5 mV · 101 ≈ <b>±1.36 V</b> shift · with Cg: <b>±13.5 mV</b></code></div>
+      <div class="eq"><span>ADC scale (ESP32-S3, 12 dB attenuation ≈ 0–3.1 V)</span><code>3.1 V / 4096 ≈ 0.76 mV per count · 1.65 V ≈ <b>2,180 counts</b></code></div>
+      <div class="eq"><span>Standing calf EMG, about 50 µV RMS at the skin</span><code>50 µV · 1,111 ≈ 56 mV → <b>≈ 73 ADC counts RMS</b></code></div>
+      <div class="eq"><span>Headroom before clipping</span><code>±1.6 V / 1,111 ≈ <b>±1.4 mV</b> at the electrodes</code></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Build and check</h2>
+    <ul>
+      <li>With the electrodes unplugged, GPIO1 should sit at about 1.65 V (U1D pin 14 within a few mV of VREF). The raw reading is roughly 2,100–2,200; the exact number varies by chip, and the web app removes this DC level, so it doesn't need to be 2048.</li>
+      <li>If pin 14 sits far from 1.65 V, check that Cg is in place between Rg and VREF.</li>
+      <li>If the INA333 output (pin 6) is stuck near 0 V or 3.3 V, the electrode DC offset is saturating it. Check the electrode contact first, then raise RG to 22k (gain 5.5).</li>
+      <li>If the standing signal looks small in the app, raise Rf to 220k (gain about 2,400). If strong contractions clip, lower it.</li>
+      <li>Run on battery only. Don't charge the laptop or plug it into mains power while the electrodes are on your skin.</li>
+      <li>Keep the electrode leads short and twisted together. Long loose leads pick up 60 Hz hum.</li>
+    </ul>
+  </section>
+</div>

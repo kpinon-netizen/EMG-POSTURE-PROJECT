@@ -1,0 +1,12 @@
+Bird calls in sounds-data.js are short excerpts (noise reduced, resampled to 24 kHz) of recordings from xeno-canto.org.
+Most are CC BY-NC-SA 4.0 (non-commercial, attribution, share alike); a few are CC BY 4.0. Keep this project non-commercial and keep this credit.
+
+peregrine: XC1189353 by Michael John O Mahony (CC BY-NC-SA 4.0); XC1193400 by Louis Marsaud (CC BY-NC-SA 4.0)
+eagle: XC955584 by Valerie Heemstra (CC BY-NC-SA 4.0)
+hummingbird: XC758917 by Manuel Grosselet (CC BY-NC-SA 4.0)
+puffin: XC667982 by Irish Wildlife Sounds (CC BY-NC-SA 4.0)
+macaw: XC1005554 by Richard Borrmann (CC BY 4.0); XC1188202 by Alain Verneau (CC BY-NC-SA 4.0)
+owl: XC219348 by Petr Suvorov (CC BY-NC-SA 4.0); XC277682 by Patrik Åberg (CC BY-NC-SA 4.0); XC343145 by Tero Linjama (CC BY-NC-SA 4.0)
+raven: XC1185313 by Richard E. Webster (CC BY-NC-SA 4.0)
+swallow: XC1156317 by Andrew McCafferty (CC BY-NC-SA 4.0); XC1166650 by João Ferreira Tomás (CC BY-NC-SA 4.0)
+flamingo: XC737280 by Justin Watts (CC BY-SA 4.0); XC994738 by FREDERIC Lionel (CC BY-NC-SA 4.0)
