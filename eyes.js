@@ -7,6 +7,7 @@ const EMG=()=>window.EMG;
 const WG_URL='https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.js';
 const CLICKABLE='button, input[type=checkbox], select, .eye-target, [role=button]';
 // 13 points: the 9-point grid plus 4 inner points, ordered as a snake so the eyes never jump far between dots
+const Z4=[0,0,0,0];
 const CAL_PTS=[[8,10],[50,10],[92,10],[71,30],[29,30],[8,50],[50,50],[92,50],[71,70],[29,70],[8,90],[50,90],[92,90]];
 const HITS_PER_DOT=3, SAMPLES_PER_HIT=8, SAMPLE_GAP=55, SETTLE=140; // samples are taken after the eyes have settled on the dot
 const S={running:false,sm:null,raw:null,frames:0,fps:0,calib:null,check:null,hover:null,test:null,acc:null,lastRead:0,lastGaze:0,lost:false,bias:{x:0,y:0},med:[],fx:null,fy:null,lastPick:0,hist:[],r:90,cands:[],best:null,lastBest:null,dwell:{el:null,t0:0},lastDwellClick:0,forceDwell:false,candEls:new Set()};
@@ -23,7 +24,7 @@ class OneEuro{
     this.px+=OneEuro.a(minC+beta*Math.abs(this.dx),dt)*(v-this.px); return this.px;
   }
 }
-S.cond={}; S.pending=null; S.fx=new OneEuro(); S.fy=new OneEuro(); S.map={ax:1,bx:0,ay:1,by:0}; S.frame=null; S.quality={score:100,tips:[]}; loadMap();
+S.cond={}; S.pending=null; S.fx=new OneEuro(); S.fy=new OneEuro(); S.map=IDMAP(); S.ears=[]; S.hw=newHw(); S.head0=null; S.lam=null; S.rej=0; S.blinkAt=-1e9; S.head=null; S.frame=null; S.quality={score:100,tips:[]}; loadMap();
 const median=a=>{ const b=[...a].sort((x,y)=>x-y), n=b.length; return n%2?b[n>>1]:(b[n/2-1]+b[n/2])/2; };
 
 function msg(t,err){ const m=$('eyMsg'); m.textContent=t; m.classList.toggle('err',!!err); }
@@ -44,6 +45,7 @@ async function start(){
     try{ webgazer.showFaceOverlay(false).showFaceFeedbackBox(false); }catch{}
   }catch(e){ msg(`The camera didn't start (${e?.message||e}). Allow camera access for this page and try again.`,true); $('eyStart').disabled=false; return; }
   if(S.pending){ const f=S.pending; S.pending=null; f(); }
+  if(S.lam!=null) setLam(S.lam); // WebGazer starts from its own default every time
   if(S.acc==null){ const p=priors(); if(p) S.acc=p.acc; } // first region size comes from earlier calibrations
   S.fx.reset(); S.fy.reset(); S.med=[]; S.lastGaze=performance.now(); S.lost=false;
   adoptFs(); if(!S.frame) S.frame={...viewFrame(),w:innerWidth,h:innerHeight}; S.running=true; $('eyStop').disabled=false; $('eyCalib').disabled=false; $('eyTest').disabled=false;
@@ -62,8 +64,8 @@ const MAPKEY='emgPosture.eyeMap';
 function viewFrame(){ const bw=Math.max(0,(outerWidth-innerWidth)/2); return {ox:(window.screenX??window.screenLeft??0)+bw,oy:(window.screenY??window.screenTop??0)+Math.max(0,outerHeight-innerHeight-bw)}; }
 function frameOff(){ if(!S.frame) return {x:0,y:0}; const f=viewFrame(); return {x:S.frame.ox-f.ox,y:S.frame.oy-f.oy}; }
 const toTrain=(x,y)=>{ const o=frameOff(); return [x-o.x,y-o.y]; };
-function loadMap(){ try{ const m=JSON.parse(localStorage.getItem(MAPKEY)||'null'); if(m){ if(m.map) S.map=m.map; if(m.bias) S.bias=m.bias; if(m.frame) S.frame=m.frame; if(m.acc!=null) S.acc=m.acc; } }catch{} }
-function saveMap(){ try{ localStorage.setItem(MAPKEY,JSON.stringify({map:S.map,bias:S.bias,frame:S.frame,acc:S.acc})); }catch{} }
+function loadMap(){ try{ const m=JSON.parse(localStorage.getItem(MAPKEY)||'null'); if(m){ if(m.map) S.map=m.map; if(m.bias) S.bias=m.bias; if(m.frame) S.frame=m.frame; if(m.acc!=null) S.acc=m.acc; if(m.lam!=null) S.lam=m.lam; if(m.head0) S.head0=m.head0; if(m.hw&&m.hw.x&&m.hw.y) S.hw=m.hw; } }catch{} }
+function saveMap(){ try{ localStorage.setItem(MAPKEY,JSON.stringify({map:S.map,bias:S.bias,frame:S.frame,acc:S.acc,lam:S.lam,head0:S.head0,hw:S.hw})); }catch{} }
 function saveMapSoon(){ clearTimeout(S.saveT); S.saveT=setTimeout(saveMap,1500); }
 /* ---------- calibration memory ----------
    Every finished calibration is written to a log (accuracy, scale/offset fit, window size, light, face size, settings). The log is kept in the browser
@@ -102,7 +104,7 @@ function renderHist(){
   el.textContent=t;
 }
 function logCsv(){
-  const cols=['t','who','w','h','acc','pct','ax','bx','ay','by','light','fw','fps','smooth','auto','hits','ok'];
+  const cols=['t','who','w','h','acc','pct','raw','model','lam','rej','ax','bx','ay','by','light','fw','fps','smooth','auto','hits','ok'];
   const rows=getLog().map(r=>cols.map(c=>{ const v=c in r?r[c]:r.map?.[c]; return c==='t'?new Date(v).toISOString():v==null?'':String(v).replace(/[",\n]/g,' '); }).join(','));
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([cols.join(',')+'\n'+rows.join('\n')],{type:'text/csv'})); a.download='eye-calibration-log.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
@@ -115,7 +117,7 @@ function saveProfile(name,quiet){
   name=(name||curProfile()||'').trim(); if(!name||!window.webgazer) return false;
   let data=[]; try{ data=(webgazer.getRegression()[0].getData()||[]).filter(d=>d?.eyes&&d.eyes.left?.patch?.data&&d.eyes.right?.patch?.data).slice(-MAXSAMP).map(d=>({e:packEye(d.eyes),s:d.screenPos,ty:d.type})); }catch{}
   if(!data.length&&!S.acc){ return false; }
-  const P=profiles(); P[name]={t:Date.now(),map:S.map,bias:S.bias,frame:S.frame,acc:S.acc,data};
+  const P=profiles(); P[name]={t:Date.now(),map:S.map,bias:S.bias,frame:S.frame,acc:S.acc,lam:S.lam,head0:S.head0,hw:S.hw,data};
   const names=Object.keys(P).sort((a,b)=>P[b].t-P[a].t); for(const n of names.slice(MAXPROF)) if(n!==name) delete P[n];
   let ok=lsSet(PROFKEY)(P);
   for(const n of Object.keys(P).sort((x,y)=>P[x].t-P[y].t)){ if(ok) break; if(n===name) continue; delete P[n]; ok=lsSet(PROFKEY)(P); }
@@ -124,17 +126,17 @@ function saveProfile(name,quiet){
 }
 function applyProfile(name){
   const p=profiles()[name]; if(!p) return false;
-  S.map=p.map||{ax:1,bx:0,ay:1,by:0}; S.bias=p.bias||{x:0,y:0}; S.acc=p.acc??null; if(p.frame) S.frame=p.frame; saveMap();
+  S.map=p.map||IDMAP(); S.bias=p.bias||{x:0,y:0}; S.acc=p.acc??null; S.lam=p.lam??null; S.head0=p.head0||null; S.hw=p.hw&&p.hw.x?p.hw:newHw(); if(p.frame) S.frame=p.frame; saveMap();
   const entries=(p.data||[]).map(d=>({eyes:unpackEye(d.e),screenPos:d.s,type:d.ty}));
-  const put=()=>{ try{ webgazer.clearData(); }catch{} try{ webgazer.getRegression()[0].setData(entries); }catch(e){ console.warn('profile data not applied',e); } };
+  const put=()=>{ try{ webgazer.clearData(); }catch{} try{ webgazer.getRegression()[0].setData(entries); }catch(e){ console.warn('profile data not applied',e); } if(S.lam!=null) setLam(S.lam); };
   if(S.running) put(); else S.pending=put;
   localStorage.setItem(CURKEY,name); S.fx.reset(); S.fy.reset(); S.med=[]; S.hist=[]; return true;
 }
 function newPerson(name){
   name=(name||'').trim(); if(!name) return;
   const p=priors();
-  S.map=p?.map?{...p.map}:{ax:1,bx:0,ay:1,by:0}; S.bias={x:0,y:0}; S.acc=p?p.acc:null; S.frame=S.running?{...viewFrame(),w:innerWidth,h:innerHeight}:S.frame;
-  const clr=()=>{ try{ webgazer.clearData(); }catch{} }; if(S.running) clr(); else S.pending=clr;
+  S.map=p?.map?{...IDMAP(),...p.map}:IDMAP(); S.bias={x:0,y:0}; S.acc=p?p.acc:null; S.lam=null; S.head0=null; S.hw=newHw(); S.frame=S.running?{...viewFrame(),w:innerWidth,h:innerHeight}:S.frame;
+  const clr=()=>{ try{ webgazer.clearData(); }catch{} setLam(null); }; if(S.running) clr(); else S.pending=clr;
   localStorage.setItem(CURKEY,name); saveMap(); renderProfiles(); msg(`Profile "${name}" is new. Calibrate now. It starts from what ${p?p.n+' earlier calibrations':'the app'} learned.`);
 }
 function renderProfiles(){
@@ -148,17 +150,119 @@ function onGaze(data){
   if(!data||!S.running) return;
   const now=performance.now(); S.frames++; S.lastGaze=now;
   if(S.lost){ S.lost=false; msg('Face found again.'); }
+  // head pose and eyelids from the face landmarks
+  const hd=headNow(); let blink=false; S.head=hd;
+  if(hd){ const E=S.ears; E.push(hd.ear); if(E.length>120) E.shift();
+    if(E.length>20){ const so=[...E].sort((a,b)=>a-b); blink=hd.ear<so[Math.floor(so.length*0.8)]*0.55; }
+    if(blink){ if(!S.blinkT0) S.blinkT0=now; else if(now-S.blinkT0>350) blink=false; } else S.blinkT0=0; // eyes "closed" for more than a third of a second is not a blink: looking down narrows them
+    if(S.prevHead){ const dt=Math.max(0.01,(now-S.prevHead.t)/1000); S.headSpd=Math.hypot(hd.x-S.prevHead.x,hd.y-S.prevHead.y)/dt; } S.prevHead={x:hd.x,y:hd.y,t:now}; }
+  S.blink=blink; if(blink) S.blinkAt=now;
   const off=frameOff(); S.raw={x:data.x+off.x,y:data.y+off.y};
-  // 1) median over the last ~170 ms (at least 3 samples) removes blink spikes without adding lag at low frame rates
+  if(blink||now-S.blinkAt<110) return; // an eyelid distorts the eye picture: keep the last good gaze
+  // 1) median over the last ~170 ms (at least 3 samples) removes spikes without adding lag at low frame rates
   S.med.push({x:S.raw.x,y:S.raw.y,t:now}); while(S.med.length>3&&now-S.med[0].t>170) S.med.shift(); if(S.med.length>9) S.med.shift();
   const mx=median(S.med.map(p=>p.x)), my=median(S.med.map(p=>p.y));
-  if(S.check) S.check.pts.push({x:mx,y:my,t:now}); // measured before any correction
-  // 2) affine correction from the last calibration, then the small offset learned from clicks
-  const W=innerWidth, H=innerHeight, bx=(S.map.ax*(mx/W)+S.map.bx)*W-S.bias.x, by=(S.map.ay*(my/H)+S.map.by)*H-S.bias.y;
+  if(S.check){ let f=null; try{ f=data.eyeFeatures?webgazer.util.getEyeFeats(data.eyeFeatures):null; }catch{} S.check.pts.push({x:mx,y:my,t:now,f,hd}); } // measured before any correction
+  // 2) correction fitted on the check dots, then the small head-movement term, then the offset learned from clicks
+  const hv=hd&&S.head0?hvec(hd,S.head0):null; S.lastHv=hv; let hc=null; const hw=S.hw;
+  if(hv&&hw&&hw.n>=8) hc=[clampN(dot(hw.x.w,hv),-0.08,0.08),clampN(dot(hw.y.w,hv),-0.08,0.08)]; S.lastHc=hc;
+  const [bx,by]=pipeline(mx,my,hc);
   // 3) adaptive smoothing: the Smoothing setting (1 to 20) sets the resting cutoff
   const sv=Math.max(1,Math.min(20,+$('eySmooth').value||4)), minC=3.2/sv, beta=0.006;
   S.sm={x:Math.max(0,Math.min(innerWidth,S.fx.step(bx,now,minC,beta))),y:Math.max(0,Math.min(innerHeight,S.fy.step(by,now,minC,beta)))};
   S.hist.push({x:bx,y:by,t:now}); while(S.hist.length&&now-S.hist[0].t>900) S.hist.shift();
+}
+/* ---------- correction model, head pose and blinks ----------
+   WebGazer predicts from the eye picture alone. Three measured corrections sit on top of it:
+   1. After the 13 training dots, 9 check dots the model has never seen are measured. Candidate corrections (none, offset, per-axis scale+offset, full 2D affine, quadratic)
+      are compared by leave-one-out error and the best simple one is kept. The accuracy shown is that held-out error, not the error on points it trained on.
+   2. The ridge strength of WebGazer's regression is tuned on the same held-out frames (it ships with an almost zero value and over-fits a few hundred samples).
+   3. Head position and turn are read from the face landmarks. A small per-axis model learns, from confident clicks, how much the gaze shifts when the head moves from where it was at calibration.
+   Blinks (eye aspect ratio) and head movement are detected so such frames are never used for training or checking. */
+function IDMAP(){ return {ax:1,bx:0,ay:1,by:0,cx:[0,0,0,0],cy:[0,0,0,0]}; }
+function applyMap(M,u,v){ const cx=M.cx||Z4, cy=M.cy||Z4;
+  return [M.ax*u+M.bx+cx[0]*v+cx[1]*u*v+cx[2]*u*u+cx[3]*v*v, M.ay*v+M.by+cy[0]*u+cy[1]*u*v+cy[2]*u*u+cy[3]*v*v]; }
+const PHI=(u,v)=>[1,u,v,u*v,u*u,v*v];
+const MODELS={offset:[[0],[0]],axis:[[0,1],[0,2]],affine:[[0,1,2],[0,1,2]],quad:[[0,1,2,3,4,5],[0,1,2,3,4,5]]};
+const MODEL_LAM={offset:0.002,axis:0.004,affine:0.01,quad:0.04}, MODEL_MIN={offset:2,axis:3,affine:4,quad:7};
+function solveLin(A,b){ // Gaussian elimination with partial pivoting
+  const n=b.length, M=A.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r; if(p!==c){ const t=M[c]; M[c]=M[p]; M[p]=t; }
+    const d=M[c][c]||1e-12; for(let r=c+1;r<n;r++){ const f=M[r][c]/d; if(f) for(let k=c;k<=n;k++) M[r][k]-=f*M[c][k]; } }
+  const x=new Array(n).fill(0); for(let i=n-1;i>=0;i--){ let s=M[i][n]; for(let k=i+1;k<n;k++) s-=M[i][k]*x[k]; x[i]=s/(M[i][i]||1e-12); } return x;
+}
+function fitModel(pts,kind){
+  if(kind==='none') return IDMAP();
+  const idx=MODELS[kind], lam=MODEL_LAM[kind], co=[];
+  for(let a=0;a<2;a++){ const I=idx[a], p=I.length, A=Array.from({length:p},()=>new Array(p).fill(0)), b=new Array(p).fill(0);
+    for(const q of pts){ const f=PHI(q.u,q.v), x=I.map(i=>f[i]), y=a?q.tv-q.v:q.tu-q.u; for(let i=0;i<p;i++){ b[i]+=x[i]*y; for(let j=0;j<p;j++) A[i][j]+=x[i]*x[j]; } }
+    for(let i=0;i<p;i++) if(I[i]!==0) A[i][i]+=lam*pts.length;
+    const w=solveLin(A,b), full=new Array(6).fill(0); I.forEach((ix,j)=>{ full[ix]=w[j]; }); co.push(full); }
+  const [x6,y6]=co; return {ax:1+x6[1],bx:x6[0],cx:[x6[2],x6[3],x6[4],x6[5]],ay:1+y6[2],by:y6[0],cy:[y6[1],y6[3],y6[4],y6[5]]};
+}
+function shrinkMap(M,s){ return {ax:1+(M.ax-1)*s,bx:M.bx*s,ay:1+(M.ay-1)*s,by:M.by*s,cx:(M.cx||Z4).map(v=>v*s),cy:(M.cy||Z4).map(v=>v*s)}; }
+function fitCorrection(pts,W,H){
+  const mean=a=>a.reduce((s,x)=>s+x,0)/a.length, err=(M,q)=>{ const [u,v]=applyMap(M,q.u,q.v); return Math.hypot((u-q.tu)*W,(v-q.tv)*H); };
+  const raw=mean(pts.map(q=>err(IDMAP(),q))), loo={none:raw}; let best='none';
+  for(const k of ['offset','axis','affine','quad']){ if(pts.length<MODEL_MIN[k]+1) continue;
+    loo[k]=mean(pts.map((q,i)=>err(fitModel(pts.filter((_,j)=>j!==i),k),q))); if(loo[k]<loo[best]*0.96) best=k; } // a simpler model wins unless a more complex one is clearly better
+  return {map:best==='none'?IDMAP():shrinkMap(fitModel(pts,best),0.93),model:best,acc:loo[best],raw,loo};
+}
+/* ridge strength: solve the normal equations once, then try many strengths against the held-out check frames */
+function scoreAffine(pred){ // how well a per-axis scale+offset could fix these predictions (pixels)
+  const q=[]; pred.forEach((p,k)=>{ if(p) q.push([p[0],p[1],CHECK[k][0]/100*innerWidth,CHECK[k][1]/100*innerHeight]); }); if(q.length<4) return Infinity; let s=0;
+  for(const [mi,ti] of [[0,2],[1,3]]){ const m=q.map(r=>r[mi]), t=q.map(r=>r[ti]), mm=m.reduce((a,v)=>a+v,0)/m.length, tm=t.reduce((a,v)=>a+v,0)/t.length; let sxx=0,sxy=0;
+    for(let i=0;i<m.length;i++){ sxx+=(m[i]-mm)**2; sxy+=(m[i]-mm)*(t[i]-tm); } const a=sxx>1e-6?sxy/sxx:1; for(let i=0;i<m.length;i++) s+=(t[i]-tm-a*(m[i]-mm))**2; }
+  return Math.sqrt(s/q.length);
+}
+function tuneRidge(res){
+  const reg=webgazer.getRegression()[0], X=reg.eyeFeaturesClicks?.data, YX=reg.screenXClicksArray?.data, YY=reg.screenYClicksArray?.data;
+  if(!X||X.length<30||!YX||!YY||!X[0]?.length) return null; const n=X.length, p=X[0].length;
+  const XtX=Array.from({length:p},()=>new Float64Array(p)), bx=new Float64Array(p), by=new Float64Array(p);
+  for(let r=0;r<n;r++){ const f=X[r], tx=YX[r][0], ty=YY[r][0]; for(let i=0;i<p;i++){ bx[i]+=f[i]*tx; by[i]+=f[i]*ty; const row=XtX[i]; for(let j=i;j<p;j++) row[j]+=f[i]*f[j]; } }
+  for(let i=0;i<p;i++) for(let j=0;j<i;j++) XtX[i][j]=XtX[j][i];
+  const off=frameOff(), out=[];
+  for(const lam of [1e-5,1e-1,10,100,1e3,1e4,3e4,1e5,3e5,1e6,3e6,1e7]){
+    const A=XtX.map((r,i)=>{ const q=Array.from(r); q[i]+=lam; return q; }), wx=solveLin(A,Array.from(bx)), wy=solveLin(A,Array.from(by));
+    const pred=res.map(r=>{ if(!r||!r.fs||r.fs.length<3) return null; const xs=[], ys=[]; for(const f of r.fs){ let a=0,b=0; for(let i=0;i<p;i++){ a+=f[i]*wx[i]; b+=f[i]*wy[i]; } xs.push(a); ys.push(b); } return [median(xs)+off.x,median(ys)+off.y]; });
+    out.push({lam,pred,score:scoreAffine(pred)}); }
+  const best=Math.min(...out.map(o=>o.score)); if(!Number.isFinite(best)) return null;
+  let pick=out[0]; for(const o of out) if(o.score<=best*1.03) pick=o; // the smoothest strength that is about as good as the best
+  return {lam:pick.lam,pred:pick.pred,score:pick.score,base:out[0].score};
+}
+function setLam(l){ S.lam=l; try{ if(l!=null) webgazer.getRegression()[0].ridgeParameter=l; }catch{} }
+/* head pose + eye openness from the 468 face landmarks */
+function headNow(){
+  try{ const P=window.webgazer?.getTracker?.()?.getPositions?.(); if(!P||P.length<400) return null;
+    const v=document.getElementById('webgazerVideoFeed'), vw=v?.videoWidth||640, d=(i,j)=>Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1]);
+    const a=P[33], b=P[263], nz=P[1], sc=d(33,263)||1, cx=(a[0]+b[0])/2, cy=(a[1]+b[1])/2;
+    const el=(d(160,144)+d(158,153))/(2*(d(33,133)||1)), er=(d(387,373)+d(385,380))/(2*(d(263,362)||1));
+    return {x:cx/vw,y:cy/vw,s:sc/vw,yw:(nz[0]-cx)/sc,pt:(nz[1]-cy)/sc,ear:(el+er)/2};
+  }catch{ return null; }
+}
+const hvec=(h,b)=>[h.x-b.x,h.y-b.y,Math.log(h.s/b.s),h.yw-b.yw,h.pt-b.pt];
+const dot=(a,b)=>{ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; };
+function newHw(){ const P=()=>Array.from({length:5},(_,i)=>Array.from({length:5},(_,j)=>i===j?9:0)); return {x:{w:[0,0,0,0,0],P:P()},y:{w:[0,0,0,0,0],P:P()},n:0}; }
+function rlsUpdate(R,h,y,lam=0.995){ // recursive least squares with forgetting
+  const n=h.length, Ph=R.P.map(r=>dot(r,h)), den=lam+dot(h,Ph), K=Ph.map(v=>v/den), e=y-dot(R.w,h);
+  for(let i=0;i<n;i++) R.w[i]+=K[i]*e;
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) R.P[i][j]=Math.min(9,(R.P[i][j]-K[i]*Ph[j])/lam); // the cap stops it winding up when the head is still
+}
+/* the whole path from the raw prediction to a screen position (also run backwards when learning from a click) */
+function pipeline(mx,my,hc){
+  const W=innerWidth, H=innerHeight, [u,v]=applyMap(S.map,mx/W,my/H);
+  return [clampN((u+(hc?hc[0]:0))*W-S.bias.x,-0.1*W,1.1*W),clampN((v+(hc?hc[1]:0))*H-S.bias.y,-0.1*H,1.1*H)];
+}
+function invertPipe(tx,ty,hc){ let r=[tx,ty]; for(let i=0;i<6;i++){ const p=pipeline(r[0],r[1],hc); r[0]+=tx-p[0]; r[1]+=ty-p[1]; } return r; }
+const goodFrame=now=>S.running&&S.raw&&!S.lost&&now-S.lastGaze<220&&!S.blink&&now-(S.blinkAt||-1e9)>150&&(S.headSpd||0)<0.35;
+/* record `n` good frames while the eyes rest on (x,y): blinks, lost faces and moving heads are skipped */
+function collect(x,y,n,maxMs,settle,done){
+  const t0=performance.now(); let got=0, last=0;
+  const tick=()=>{ const now=performance.now();
+    if(!S.running||!S.calib){ done(got); return; }
+    if(now-t0>=settle&&now-last>=45){ last=now; if(goodFrame(now)){ try{ webgazer.recordScreenPosition(x,y,'click'); got++; }catch{} } else S.rej++; }
+    if(got>=n||now-t0>=maxMs){ done(got); return; } setTimeout(tick,16); };
+  setTimeout(tick,Math.min(settle,60));
 }
 /* ---------- the gaze region ----------
    Eye trackers are never accurate to a pixel, so instead of one point the cursor is a region. Its radius grows with how much the gaze has been
@@ -239,6 +343,8 @@ function activate(el){
 function driftFrom(el){
   if(!regionOn()||!S.sm||S.cands[0]?.el!==el||S.cands[0].cover<0.5) return; const r=el.getBoundingClientRect(); if(Math.max(r.width,r.height)>S.r*2) return;
   const ex=S.sm.x-(r.left+r.width/2), ey=S.sm.y-(r.top+r.height/2); if(Math.hypot(ex,ey)>S.r*0.8) return;
+  const hv=S.lastHv; if(hv&&S.hw&&Math.hypot(...hv)>0.004){ const hc=S.lastHc||[0,0], tx=r.left+r.width/2, ty=r.top+r.height/2;
+    rlsUpdate(S.hw.x,hv,(tx-(S.sm.x-hc[0]*innerWidth))/innerWidth); rlsUpdate(S.hw.y,hv,(ty-(S.sm.y-hc[1]*innerHeight))/innerHeight); S.hw.n++; } // how far the gaze moves when the head does
   S.bias={x:clampN(S.bias.x+ex*0.15,-innerWidth*0.15,innerWidth*0.15),y:clampN(S.bias.y+ey*0.15,-innerHeight*0.15,innerHeight*0.15)}; saveMapSoon();
 }
 // Every successful click is a free calibration sample: you were looking at that button, so teach the model where it is.
@@ -248,22 +354,32 @@ function learnFromClick(el){
   const dx=Math.max(r.left-S.sm.x,0,S.sm.x-r.right), dy=Math.max(r.top-S.sm.y,0,S.sm.y-r.bottom);
   if(Math.hypot(dx,dy)>Math.max(70,S.r*0.8)) return; // too far off: probably a wrong pick, don't learn from it
   const cx=Math.max(r.left,Math.min(r.right,S.sm.x*0.35+(r.left+r.width/2)*0.65)), cy=Math.max(r.top,Math.min(r.bottom,S.sm.y*0.35+(r.top+r.height/2)*0.65));
-  const [tx,ty]=toTrain(cx,cy); for(let k=0;k<3;k++) setTimeout(()=>{ try{ webgazer.recordScreenPosition(tx,ty,'click'); }catch{} },k*50);
+  const [rx,ry]=invertPipe(cx,cy,S.lastHc), [tx,ty]=toTrain(rx,ry); for(let k=0;k<3;k++) setTimeout(()=>{ try{ webgazer.recordScreenPosition(tx,ty,'click'); }catch{} },k*50);
 }
 
 /* ---------- calibration ---------- */
-const CHECK=[[50,50],[12,50],[88,50],[50,14],[50,86]];
+const CHECK=[[50,50],[12,50],[88,50],[50,14],[50,86],[28,28],[72,28],[72,72],[28,72]], CHECK_MS=1600;
 function calibrate(){
   if(!S.running){ msg('Start eye tracking first.',true); return; }
   const fr=viewFrame(), f=S.frame;
-  if(f&&(Math.abs(f.ox-fr.ox)+Math.abs(f.oy-fr.oy)>40||Math.abs((f.w||innerWidth)-innerWidth)>120||Math.abs((f.h||innerHeight)-innerHeight)>120)){ try{ webgazer.clearData(); }catch{} } // data from another window layout would only confuse the model
-  S.frame={...fr,w:innerWidth,h:innerHeight}; S.bias={x:0,y:0}; S.map={ax:1,bx:0,ay:1,by:0};
-  S.calib={i:0,hits:0,phase:'dots',k:0}; $('eyCalibLayer').hidden=false; renderCalib();
+  if(f&&(Math.abs(f.ox-fr.ox)+Math.abs(f.oy-fr.oy)>40||Math.abs((f.w||innerWidth)-innerWidth)>120||Math.abs((f.h||innerHeight)-innerHeight)>120)){ try{ webgazer.clearData(); }catch{} setLam(null); } // data from another window layout would only confuse the model
+  S.frame={...fr,w:innerWidth,h:innerHeight}; S.bias={x:0,y:0}; S.map=IDMAP(); S.hw=newHw(); S.head0=null; S.rej=0; S.med=[];
+  S.calib={i:0,hits:0,phase:'ready',k:0,t0:performance.now(),okSince:0,fail:0}; $('eyCalibLayer').hidden=false; renderCalib(); readyPoll(S.calib);
 }
 const autoOn=()=>!!$('eyAuto')?.checked;
+/* wait until the face is seen, lit and still before the first dot: calibrating on a bad picture wastes the whole run */
+function readyPoll(c){
+  if(S.calib!==c||c.phase!=='ready') return; const now=performance.now();
+  const ok=!S.lost&&S.quality.score>=55&&!S.blink&&(S.headSpd||0)<0.2&&!!S.raw;
+  if(ok){ if(!c.okSince) c.okSince=now; } else c.okSince=0;
+  if((c.okSince&&now-c.okSince>1200)||now-c.t0>9000){ c.phase='dots'; c.i=0; c.hits=0; renderCalib(); return; }
+  $('eyCalibText').textContent=`Getting ready… ${S.lost?"I can't see your face.":S.quality.tips[0]||'Sit the way you will use it, keep your head still and look at the screen.'} · Esc cancels`;
+  c.timer=setTimeout(()=>readyPoll(c),250);
+}
 function renderCalib(){
   const L=$('eyCalibLayer'), c=S.calib;
   for(const d of [...L.querySelectorAll('.cal-dot')]) d.remove();
+  if(c.phase==='ready') return;
   const pts=c.phase==='check'?[CHECK[c.k||0]]:CAL_PTS;
   pts.forEach(([px,py],i)=>{
     const d=document.createElement('button'); d.type='button'; d.className='cal-dot'+(c.phase==='check'||i===c.i?' current':i<c.i?' done':'');
@@ -272,48 +388,51 @@ function renderCalib(){
     L.append(d);
   });
   $('eyCalibText').textContent=c.phase==='check'
-    ?`Keep looking at the dot. Checking accuracy · point ${(c.k||0)+1} of ${CHECK.length}`
+    ?`Keep looking at the dot. Checking accuracy on points the model has not seen · ${(c.k||0)+1} of ${CHECK.length}`
     :autoOn()?`Look straight at the glowing dot. It advances by itself · dot ${c.i+1} of ${CAL_PTS.length} · Esc cancels`
     :`Look straight at the glowing dot and tap your foot, or click it. ${hitsPerDot()-c.hits} more for this dot · dot ${c.i+1} of ${CAL_PTS.length} · Esc cancels`;
-  if(c.phase==='dots'&&autoOn()){ clearTimeout(c.timer); c.timer=setTimeout(()=>{ if(S.calib===c&&c.phase==='dots') calibHit(); },c.hits===0?950:450); }
+  if(c.phase==='dots'&&autoOn()){ clearTimeout(c.timer); c.timer=setTimeout(()=>{ if(S.calib===c&&c.phase==='dots') calibHit(); },c.hits===0&&!c.fail?950:350); }
 }
 function calibHit(){
-  const c=S.calib; if(!c||c.phase!=='dots') return;
-  const [px,py]=CAL_PTS[c.i], x=innerWidth*px/100, y=innerHeight*py/100;
-  // wait for the eyes to settle after the tap, then take several frames while you keep looking
-  for(let k=0;k<SAMPLES_PER_HIT;k++) setTimeout(()=>{ try{ webgazer.recordScreenPosition(x,y,'click'); }catch{} },SETTLE+k*SAMPLE_GAP);
-  c.hits++;
-  if(c.hits>=hitsPerDot()){ c.i++; c.hits=0; if(c.i>=CAL_PTS.length){ clearTimeout(c.timer); startCheck(); return; } }
-  renderCalib();
+  const c=S.calib; if(!c||c.phase!=='dots'||c.busy) return;
+  const [px,py]=CAL_PTS[c.i], x=innerWidth*px/100, y=innerHeight*py/100; c.busy=true;
+  // sampling finishes before the next dot appears, so no sample is ever taken while the eyes are travelling
+  collect(x,y,SAMPLES_PER_HIT,1500,SETTLE,got=>{
+    c.busy=false; if(S.calib!==c||c.phase!=='dots') return;
+    if(got<Math.ceil(SAMPLES_PER_HIT/2)&&c.fail<2){ c.fail++; renderCalib(); $('eyCalibText').textContent='I could not see your eyes clearly. Keep looking at the dot, face the camera and try not to blink.'; return; }
+    c.fail=0; c.hits++;
+    if(c.hits>=hitsPerDot()){ c.i++; c.hits=0; if(c.i>=CAL_PTS.length){ clearTimeout(c.timer); startCheck(); return; } }
+    renderCalib(); });
 }
 function startCheck(){ const c=S.calib; c.phase='check'; c.k=0; S.check={pts:[],res:[],t0:performance.now()}; renderCalib(); stepCheck(); }
 function stepCheck(){
   const c=S.calib; if(!c||!S.check) return; const k=c.k, t0=performance.now(); S.check.pts=[];
   setTimeout(()=>{
     if(!S.check||S.calib!==c) return;
-    const pts=S.check.pts.filter(p=>p.t>t0+650); S.check.res[k]=pts.length>=3?{x:median(pts.map(p=>p.x)),y:median(pts.map(p=>p.y))}:null;
+    const pts=S.check.pts.filter(p=>p.t>t0+650); S.check.res[k]=pts.length>=3?{x:median(pts.map(p=>p.x)),y:median(pts.map(p=>p.y)),n:pts.length,fs:pts.filter(p=>p.f).map(p=>p.f).slice(-16),hd:pts.map(p=>p.hd).filter(Boolean)}:null;
     c.k++; if(c.k>=CHECK.length){ finishCheck(); return; } renderCalib(); stepCheck();
-  },1500);
-}
-function fitAxis(m,t){ // least squares t = a*m + b, with the scale kept within a sensible range
-  const n=m.length, mm=m.reduce((a,v)=>a+v,0)/n, tm=t.reduce((a,v)=>a+v,0)/n; let sxx=0,sxy=0; for(let i=0;i<n;i++){ sxx+=(m[i]-mm)**2; sxy+=(m[i]-mm)*(t[i]-tm); }
-  const a=clampN(sxx>1e-5?sxy/sxx:1,0.75,1.35); return {a,b:tm-a*mm};
+  },CHECK_MS);
 }
 function finishCheck(){
   const res=S.check.res, W=innerWidth, H=innerHeight; S.check=null;
-  if(res.filter(Boolean).length<3||!res[0]){ S.fx.reset(); S.fy.reset(); S.med=[]; logCalibration({ok:0,acc:0,pct:0,map:S.map}); endCalib(); msg('No gaze data during the check. Make sure your face is visible to the camera, then calibrate again.',true); return; }
-  const xi=[0,1,2].filter(i=>res[i]), yi=[0,3,4].filter(i=>res[i]);
-  const fx=xi.length>=2?fitAxis(xi.map(i=>res[i].x/W),xi.map(i=>CHECK[i][0]/100)):{a:1,b:0.5-res[0].x/W}, fy=yi.length>=2?fitAxis(yi.map(i=>res[i].y/H),yi.map(i=>CHECK[i][1]/100)):{a:1,b:0.5-res[0].y/H};
-  S.map={ax:1+(fx.a-1)*0.85,bx:clampN(fx.b*0.85,-0.2,0.2),ay:1+(fy.a-1)*0.85,by:clampN(fy.b*0.85,-0.2,0.2)}; S.bias={x:0,y:0}; // blended toward the fit so one bad dot can't throw the mapping off
-  { const pr=priors()?.map; if(pr){ const k=0.2; for(const q of ['ax','bx','ay','by']) S.map[q]=S.map[q]*(1-k)+pr[q]*k; } } // and a little toward the typical fit of earlier good runs
-  let err=0,n=0; for(let i=0;i<CHECK.length;i++){ if(!res[i]) continue; const cx=(S.map.ax*(res[i].x/W)+S.map.bx)*W, cy=(S.map.ay*(res[i].y/H)+S.map.by)*H; err+=Math.hypot(cx-CHECK[i][0]/100*W,cy-CHECK[i][1]/100*H); n++; }
-  S.acc=err/n; S.fx.reset(); S.fy.reset(); S.med=[]; S.hist=[]; endCalib(); saveMap();
-  const pct=S.acc/W*100;
-  logCalibration({ok:1,acc:Math.round(S.acc),pct:+pct.toFixed(2),map:{...S.map}}); saveProfile(curProfile()||'default',true);
-  $('eyAcc').textContent=`Last calibration: average error ${Math.round(S.acc)} px after correction (${pct.toFixed(1)}% of the window width), checked at 5 points. Scale correction ${fx.a.toFixed(2)}× / ${fy.a.toFixed(2)}×.`;
-  msg(pct<6?'Calibration done. Excellent accuracy. Foot taps (or dwelling) now select where you look.'
-    :pct<10?'Calibration done. Good accuracy. Selection works on the region you look at, and every click improves it.'
-    :'Calibration done, but accuracy is rough. Better lighting on your face, a steadier head or calibrating again will help. The gaze region grows to make up for it.');
+  if(res.filter(r=>r&&r.n>=3).length<4||!res[0]){ S.fx.reset(); S.fy.reset(); S.med=[]; logCalibration({ok:0,acc:0,pct:0,map:S.map}); endCalib(); msg('Not enough gaze data during the check. Make sure your face is visible to the camera, then calibrate again.',true); return; }
+  // 1) ridge strength tuned on frames the model never saw
+  let lamInfo=null; try{ lamInfo=tuneRidge(res); }catch(e){ console.warn('ridge tuning skipped',e); }
+  if(lamInfo){ setLam(lamInfo.lam); res.forEach((r,k)=>{ const p=lamInfo.pred[k]; if(r&&p){ r.x=p[0]; r.y=p[1]; } }); }
+  // 2) the correction with the lowest leave-one-out error
+  const pts=[]; res.forEach((r,k)=>{ if(r&&r.n>=3) pts.push({u:r.x/W,v:r.y/H,tu:CHECK[k][0]/100,tv:CHECK[k][1]/100}); });
+  const fit=fitCorrection(pts,W,H); S.map=fit.map; S.bias={x:0,y:0};
+  if(['none','offset','axis'].includes(fit.model)){ const pr=priors()?.map; if(pr){ const k=0.2; for(const q of ['ax','bx','ay','by']) S.map[q]=S.map[q]*(1-k)+pr[q]*k; } } // and a little toward the typical fit of earlier good runs
+  // 3) where the head was: later head movement is measured against this
+  const hds=res.flatMap(r=>r?.hd||[]); if(hds.length>=6) S.head0={x:median(hds.map(h=>h.x)),y:median(hds.map(h=>h.y)),s:median(hds.map(h=>h.s)),yw:median(hds.map(h=>h.yw)),pt:median(hds.map(h=>h.pt))}; else S.head0=null;
+  S.hw=newHw();
+  S.acc=fit.acc; S.fx.reset(); S.fy.reset(); S.med=[]; S.hist=[]; endCalib(); saveMap();
+  const pct=S.acc/W*100, modelName={none:'none needed',offset:'offset',axis:'scale and offset per axis',affine:'full 2D (handles rotation)',quad:'curved (quadratic)'}[fit.model];
+  logCalibration({ok:1,acc:Math.round(S.acc),pct:+pct.toFixed(2),raw:Math.round(fit.raw),model:fit.model,lam:S.lam,rej:S.rej,map:{...S.map}}); saveProfile(curProfile()||'default',true);
+  $('eyAcc').textContent=`Last calibration: average error ${Math.round(S.acc)} px (${pct.toFixed(1)}% of the window width), measured on ${pts.length} points the model had never seen. Before correction it was ${Math.round(fit.raw)} px. Correction: ${modelName}.${S.rej?` ${S.rej} unclear frames (blinks, head movement) were skipped.`:''}`;
+  msg(pct<4?'Calibration done. Excellent accuracy. Foot taps (or dwelling) now select where you look.'
+    :pct<7?'Calibration done. Good accuracy. Selection works on the region you look at, and every click improves it.'
+    :'Calibration done, but accuracy is rough. Better light on your face, a steadier head or calibrating again will help. The gaze region grows to make up for it.');
 }
 function endCalib(){ if(S.calib) clearTimeout(S.calib.timer); S.calib=null; $('eyCalibLayer').hidden=true; }
 /* In fullscreen only the fullscreen element and its children are drawn, so the gaze region, the calibration screen and the camera preview move inside it. */
@@ -407,10 +526,10 @@ $('eyStart').onclick=start;
 $('eyStop').onclick=stop;
 $('eyCalib').onclick=calibrate;
 $('eyTest').onclick=startTest;
-$('eyClear').onclick=()=>{ try{ window.webgazer?.clearData(); }catch{} try{ localStorage.removeItem('webgazerGlobalData'); }catch{} S.acc=null; S.bias={x:0,y:0}; S.map={ax:1,bx:0,ay:1,by:0}; try{ localStorage.removeItem(MAPKEY); }catch{} $('eyAcc').textContent=''; msg('Saved calibration cleared. Calibrate again before using eye clicks.'); };
+$('eyClear').onclick=()=>{ try{ window.webgazer?.clearData(); }catch{} try{ localStorage.removeItem('webgazerGlobalData'); }catch{} S.acc=null; S.bias={x:0,y:0}; S.map=IDMAP(); S.hw=newHw(); S.head0=null; S.lam=null; try{ localStorage.removeItem(MAPKEY); }catch{} $('eyAcc').textContent=''; msg('Saved calibration cleared. Calibrate again before using eye clicks.'); };
 $('eyPreview').onchange=()=>{ if(S.running) webgazer.showVideoPreview($('eyPreview').checked); };
 requestAnimationFrame(frame);
-window.EyeControl={_state:()=>S,pickTarget,pickRegion,eyeClick,start,calibrate,adoptFs,
+window.EyeControl={_m:{tuneRidge,setLam,headNow,goodFrame,fitCorrection,applyMap,fitModel,rlsUpdate,newHw,solveLin,IDMAP,hvec,pipeline,invertPipe},_state:()=>S,pickTarget,pickRegion,eyeClick,start,calibrate,adoptFs,
   running:()=>S.running, calibrating:()=>!!S.calib,
   forceDwell:on=>{ S.forceDwell=!!on; }, // the in-game menu turns dwell selection on so it works without a foot tap
   recenter:(cx,cy)=>{ if(!S.sm) return false; S.bias={x:clampN(S.bias.x+S.sm.x-cx,-innerWidth*0.15,innerWidth*0.15),y:clampN(S.bias.y+S.sm.y-cy,-innerHeight*0.15,innerHeight*0.15)}; S.fx.reset(); S.fy.reset(); S.med=[]; S.hist=[]; return true; }, // "I'm looking at the middle right now"
