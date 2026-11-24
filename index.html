@@ -615,12 +615,13 @@ th{font-family:var(--sans);font-weight:700}
       <label>Steering assist <input id="rAssist" type="checkbox" checked></label>
     </div>
     <div id="rTravelOpts" hidden>
+      <label>Hearts: hitting something costs one, floating hearts give one back <input id="rHearts" type="checkbox" checked></label>
       <label>Foot tap takes a photo <input id="rTapPhoto" type="checkbox"></label>
       <label>Hand gestures (optional, no training) <select id="rHand" style="width:150px"><option value="off">Off</option><option value="both">Steer + flap</option><option value="flap">Flap only</option></select></label>
       <div class="row" id="rHandRow" hidden><button id="rHandNeutral">Set neutral (N)</button><button id="rHandStop">Stop hand camera</button></div>
       <div class="msg" id="rHandMsg" hidden></div>
-      <label>Time of day (city maps) <select id="rTod" style="width:150px"><option value="noon">Noon</option><option value="morning">Morning</option><option value="golden">Golden hour</option><option value="dusk">Dusk</option><option value="night">Night</option><option value="cycle">Live cycle</option></select></label>
-      <label>Weather (city maps) <select id="rWeather" style="width:150px"><option value="clear">Clear</option><option value="overcast">Overcast</option><option value="rain">Rain</option><option value="fog">Fog</option></select></label>
+      <label>Time of day <select id="rTod" style="width:150px"><option value="native">Map default</option><option value="noon">Noon</option><option value="morning">Morning</option><option value="golden">Golden hour</option><option value="dusk">Dusk</option><option value="night">Night</option><option value="cycle">Live cycle</option></select></label>
+      <label>Weather <select id="rWeather" style="width:150px"><option value="clear">Clear</option><option value="overcast">Overcast</option><option value="rain">Rain</option><option value="fog">Fog</option></select></label>
       <label>Bird size (city maps) <select id="rBirdSize" style="width:150px"><option value="0.35">Tiny</option><option value="0.55" selected>Small</option><option value="0.8">Medium</option><option value="1.2">Large</option></select></label>
     </div>
     <div class="row"><button id="rCalFlex">Calibrate flex in the game (F)</button></div>
@@ -633,6 +634,11 @@ th{font-family:var(--sans);font-weight:700}
     <h2>Missions</h2>
     <div id="rMissions" class="small" style="line-height:1.6"></div>
     <div class="small">Press M to start or stop the first mission. Fly through the glowing rings.</div>
+  </section>
+  <section class="panel" id="rFriendPanel" hidden>
+    <h2>Friends in this room</h2>
+    <div id="rFriends" class="small" style="line-height:1.5"></div>
+    <div class="small" style="margin-top:6px">T flies to the nearest friend · Y follows them in formation (steer to stop) · 1–5 send emotes. Everyone in the room shares the sky and the places you find.</div>
   </section>
   <section class="panel" id="rJournalPanel" hidden>
     <h2>Travel journal</h2>
