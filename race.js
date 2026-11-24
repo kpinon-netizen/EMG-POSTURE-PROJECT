@@ -297,7 +297,7 @@ function buildWorld(id){
   scene.fog=new T.Fog(co.fog[0],co.fog[1],co.fog[2]);
   scene.background=new T.Color(co.fog[0]);
   R.renderer.shadowMap.enabled=q.shadow>0;
-  R.scale=1; R.cap=1; R.ft=16.7; R.warm=90; R.adj=0; R.raised=0;
+  R.scale=1; R.cap=1; R.ft=16.7; R.warm=90; R.adj=0; R.raised=0; R.fr=0;
   R.renderer.setPixelRatio(Math.min(devicePixelRatio||1,q.pr));
   const tr=W.tr=buildTrack(co);
   const sunDir=new T.Vector3(...co.sun.dir).normalize(); W.sunDir=sunDir;
@@ -1846,6 +1846,7 @@ function render(dt,now){
   adaptScale(dt,now);
   if(W.water){ W.waterU.time.value=t; W.waterU.camPos.value.copy(camera.position); W.water.position.x=Math.round(camera.position.x/70)*70; W.water.position.z=Math.round(camera.position.z/70)*70; }
   W.sun.position.copy(r.pos).addScaledVector(W.sunDir,500); W.sun.target.position.copy(r.pos); W.sun.target.updateMatrixWorld();
+  { const sm=renderer.shadowMap; if(sm.enabled){ sm.autoUpdate=false; R.fr=(R.fr||0)+1; sm.needsUpdate=R.fr<6||R.fr%2===0; } } // the shadow pass (every building tile again) runs every other frame: shadows stay anchored to the world, half the cost
   renderer.render(W.scene,camera);
   if(photoReq){ photoReq=false; savePhoto(); }
   drawHud(now);
@@ -2079,8 +2080,9 @@ function obb(p,n){ // smallest rotated box around a footprint: u = long axis
   if(hs<ht){ const t=ux; ux=-uz; uz=t; const q=hs; hs=ht; ht=q; }
   return {ux,uz,cx,cz,hs,ht};
 }
+let CITY_H=1;   // USC buildings are drawn 1.3x taller than the survey heights so the campus feels properly monumental next to a bird
 function uscStyle(rec,i){
-  const r=hsh(i), st=USC_STYLE[rec.name]||(/^School of Cinematic Arts/.test(rec.name)?USC_STYLE.SCA:null), h0=rec.h, ob=obb(rec.p,rec.n); rec.ob=ob; rec.hv=r;
+  const r=hsh(i), st=USC_STYLE[rec.name]||(/^School of Cinematic Arts/.test(rec.name)?USC_STYLE.SCA:null), h0=rec.h*CITY_H, ob=obb(rec.p,rec.n); rec.ob=ob; rec.hv=r;
   const rect=!rec.hl.length&&rec.n<=24&&rec.area/(4*ob.hs*ob.ht)>0.84&&rec.area>40;
   let kind=1, wc=null, roof='flat', rcol=null;
   if(st){ kind=st.k; wc=st.w; roof=st.roof||'flat'; rcol=st.rc; }
@@ -2100,8 +2102,8 @@ function uscStyle(rec,i){
 }
 function uscPrep(co){
   if(UC[co.id]){ U=UC[co.id]; GR=U.GR; return true; }
-  const D=window[co.data]; if(!D) return false;
-  U={D,B:[],grid:new Map(),CELL:32,people:null,cars:null,labels:null,stadia:[],GR:{x0:D.gr[0],x1:D.gr[1],z0:D.gr[2],z1:D.gr[3]}}; GR=U.GR; UC[co.id]=U;
+  const D=window[co.data]; if(!D) return false; CITY_H=co.id==='usc'?1.3:1;
+  U={D,B:[],hs:CITY_H,grid:new Map(),CELL:32,people:null,cars:null,labels:null,stadia:[],GR:{x0:D.gr[0],x1:D.gr[1],z0:D.gr[2],z1:D.gr[3]}}; GR=U.GR; UC[co.id]=U;
   let bi=0;
   for(const b of D.b){
     let p=b.p.slice(), n=p.length/2, A=0;
@@ -2169,6 +2171,7 @@ function buildUscGround(q){
   const order=['motorway','primary','secondary','tertiary','residential','service','pedestrian','footway','steps'];
   for(const t of ['primary','secondary','tertiary','residential']) for(const r of U.D.r) if(r.t===t) line(r.p,ROAD_W[t]+3.6,'#d3cfc0');   // sidewalk strip
   for(const t of ['primary','secondary','tertiary','residential']) for(const r of U.D.r) if(r.t===t) line(r.p,ROAD_W[t]+3.6-0.5,'#cac6b6',[0.5*ppm,6*ppm]); // paving joints
+  for(const t of ['primary','secondary','tertiary','residential']) for(const r of U.D.r) if(r.t===t) line(r.p,ROAD_W[t]+0.8,'#9c998d'); // kerb
   for(const t of order) for(const r of U.D.r) if(r.t===t){
     const col=t==='motorway'?'#4a4d53':t==='service'?'#6e7176':t==='pedestrian'?'#ddd4bf':t==='footway'?'#e3dbc8':t==='steps'?'#cdc4ae':'#55585e'; line(r.p,ROAD_W[t],col); }
   for(const t of ['primary','secondary']) for(const r of U.D.r) if(r.t===t) line(r.p,0.3,'#e5cd6c',[5*ppm,5*ppm]);                          // centre line
@@ -2187,13 +2190,12 @@ function buildUscGround(q){
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPg; uniform float uTime;\nfloat h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }\nfloat vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h21(i),h21(i+vec2(1.0,0.0)),f.x),mix(h21(i+vec2(0.0,1.0)),h21(i+vec2(1.0,1.0)),f.x),f.y); }\nfloat fbm(vec2 p){ return vn(p)*0.5+vn(p*2.03+7.1)*0.25+vn(p*4.1+3.3)*0.125+vn(p*8.3+1.7)*0.0625; }').replace('#include <map_fragment>',`#include <map_fragment>
       { vec2 w=vWPg.xz; float dd=length(vWPg-cameraPosition), near=1.0-smoothstep(30.0,170.0,dd), lum=dot(diffuseColor.rgb,vec3(0.3,0.59,0.11));
         float gr=step(diffuseColor.r+0.015,diffuseColor.g)*step(diffuseColor.b+0.03,diffuseColor.g), dark=1.0-smoothstep(0.25,0.4,lum), pav=smoothstep(0.55,0.7,lum)*(1.0-gr);
-        // smooth multi-scale noise (no hard texel squares): broad tonal drift, mid patches, fine blades up close
-        float broad=fbm(w*0.045)-0.5, mid=fbm(w*0.35+11.0)-0.5, fine=fbm(w*2.6+3.0)-0.5, blade=vn(w*vec2(11.0,15.0)+5.0)-0.5, blade2=vn(w*vec2(27.0,21.0)-9.0)-0.5;
+        // smooth multi-scale noise (no hard texel squares), branch-free and cheap: 2-octave tonal drift, fine blades faded in up close
         float close=1.0-smoothstep(5.0,70.0,dd), mid2=1.0-smoothstep(25.0,260.0,dd);
+        float broad=vn(w*0.045)*0.65+vn(w*0.11+4.0)*0.35-0.5, mid=vn(w*0.35+11.0)*0.65+vn(w*0.8+2.0)*0.35-0.5, fine=vn(w*2.6+3.0)-0.5, blade=vn(w*vec2(11.0,15.0)+5.0)-0.5;
         diffuseColor.rgb*=1.0+(broad*0.22+mid*0.14)*mid2*(0.45+0.8*gr+0.35*dark+0.3*pav);
-        diffuseColor.rgb*=1.0+gr*close*(fine*0.26+blade*0.22+blade2*0.16);
-        diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.06,1.03,0.86),gr*smoothstep(0.1,0.4,mid)*mid2*0.6); // sun-dried patches
-        diffuseColor.rgb*=1.0+(dark+pav)*close*fine*0.14;
+        diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.06,1.03,0.86),gr*smoothstep(0.1,0.4,mid)*mid2*0.6);
+        diffuseColor.rgb*=1.0+gr*close*(fine*0.3+blade*0.24)+(dark+pav)*close*fine*0.14;
         { vec2 f=fract(w/1.2); float j=1.0-smoothstep(0.0,0.03,min(min(f.x,1.0-f.x),min(f.y,1.0-f.y))); diffuseColor.rgb*=1.0-pav*near*0.16*j; diffuseColor.rgb*=1.0+pav*near*(h21(floor(w/1.2))-0.5)*0.07; }
         diffuseColor.rgb*=1.0+sin(w.x*0.9+w.y*0.4)*0.015*gr*near;
         float wat=step(diffuseColor.r+0.06,diffuseColor.b)*step(diffuseColor.g-0.03,diffuseColor.b); diffuseColor.rgb+=wat*near*(0.07*sin(w.x*2.3+w.y*1.9+uTime*1.6)+0.05*sin(w.x*5.1-w.y*3.7+uTime*2.4)); }`); };
@@ -2571,7 +2573,7 @@ function buildUscLabels(){
 }
 /* Labels are painted as signage that belongs to the thing they name, and their tail points at it:
    buildings = cardinal plaque with a gold rule and a "floors · height" line, streets = green street sign, places = park sign, cafés/art = small tags. */
-function bldSub(b){ const fl=Math.max(1,Math.round(b.hw/3.7)), kd={u:'University building',r:'Residence',c:'Campus building',p:'Parking',o:'Building'}[b.k]||'Building'; return `${kd} · ${fl} ${fl>1?'floors':'floor'} · ${Math.round(b.h)} m`; }
+function bldSub(b){ const hsK=U.hs||1, fl=Math.max(1,Math.round(b.hw/hsK/3.7)), kd={u:'University building',r:'Residence',c:'Campus building',p:'Parking',o:'Building'}[b.k]||'Building'; return `${kd} · ${fl} ${fl>1?'floors':'floor'} · ${Math.round(b.h/hsK)} m`; }
 function paintLabel(s,src){
   const g=s.cv.getContext('2d'), W2=512, H2=128; g.clearRect(0,0,W2,H2); g.textBaseline='middle'; g.textAlign='center';
   const fit=(txt,px,wt,fam,max)=>{ let f=px; g.font=`${wt} ${f}px ${fam}`; const w=g.measureText(txt).width; if(w>max){ f=Math.max(13,f*max/w); g.font=`${wt} ${f}px ${fam}`; } return g.measureText(txt).width; };
