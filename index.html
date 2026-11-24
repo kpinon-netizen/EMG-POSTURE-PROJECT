@@ -275,8 +275,12 @@ th{font-family:var(--sans);font-weight:700}
       <button id="btnSaveModel" disabled>Save model</button>
       <button id="btnLoadModel">Load model</button>
       <input id="modelIn" type="file" accept=".json" hidden>
+      <button id="btnBackup" title="Download every model, recording and setting you have saved in this browser">Back up all training</button>
+      <button id="btnRestoreAll">Restore backup</button>
+      <input id="restoreIn" type="file" accept=".json" hidden>
     </div>
     <div class="small" id="modelInfo">No model loaded</div>
+    <div class="small" id="saveStamp">Everything you record or train is saved automatically in this browser.</div>
     <label>Live prediction <input id="predOn" type="checkbox"></label>
     <label>Smoothing (windows) <input id="smooth" type="number" value="6"></label>
     <div class="msg" id="trainMsg">Logistic regression on time + FFT features.</div>
@@ -503,6 +507,19 @@ th{font-family:var(--sans);font-weight:700}
     <label>Dead zone (%) <input id="xDead" type="number" value="8" min="0" max="50"></label>
     <div class="msg" id="xTrainMsg"></div>
   </section>
+  <section class="panel">
+    <h2>3 · Live test</h2>
+    <div class="msg" style="margin-top:0">Checks that the ML really works: you flex at the levels in a shuffled order (the model has never seen that order) and the test compares what each method reports with what was asked.</div>
+    <label>Seconds per step <input id="xtDur" type="number" value="8" min="4"></label>
+    <label>Transition time (s) <input id="xtSettle" type="number" value="2" min="0"></label>
+    <label>Rounds <input id="xtRounds" type="number" value="2" min="1" max="4"></label>
+    <label>Spoken cues <input id="xtVoice" type="checkbox" checked></label>
+    <div class="row">
+      <button class="primary" id="xtStart">Start test</button>
+      <button id="xtStop" disabled>Stop</button>
+      <button id="xtExport" disabled>Export results</button>
+    </div>
+  </section>
 </aside>
 <section>
   <div class="panel">
@@ -519,6 +536,12 @@ th{font-family:var(--sans);font-weight:700}
   <div class="panel">
     <h2>Calibration fit</h2>
     <div class="tw" id="xFit"><span class="small">Train a model to see how well each method tracks each level.</span></div>
+  </div>
+  <div class="panel">
+    <h2>Live test results <span class="small" id="xtWhen" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div class="tw" id="xtResults"><span class="small">Run the live test to see how accurately each method follows your effort.</span></div>
+    <div class="tw" id="xtLevels"></div>
+    <div class="verdict" id="xtVerdict"></div>
   </div>
 </section>
 </main>
@@ -1045,8 +1068,15 @@ function train(){
 
 /* ---------------- Model & data persistence ---------------- */
 const LS_MODEL='emgPosture.model', LS_DATA='emgPosture.dataset';
-function persistModel(){ try{ localStorage.setItem(LS_MODEL,JSON.stringify(model)); }catch{} showModelInfo(); }
-function persistData(){ try{ localStorage.setItem(LS_DATA,JSON.stringify({segCounter,dataset})); }catch{} }
+/* Every training save goes through saveLS: if the browser refuses (storage full or blocked) a red banner says so instead of failing silently. */
+let saveWarnT=0;
+function saveLS(key,val){
+  try{ localStorage.setItem(key,JSON.stringify(val)); const t=$('saveStamp'); if(t) t.textContent='Training saved in this browser at '+new Date().toLocaleTimeString(); return true; }
+  catch(e){ if(Date.now()-saveWarnT>8000){ saveWarnT=Date.now(); let b=$('saveWarn'); if(!b){ b=document.createElement('div'); b.id='saveWarn'; b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#b3261e;color:#fff;padding:10px 16px;border-radius:10px;z-index:99;font:600 13px system-ui;box-shadow:0 6px 20px #0005;max-width:90vw'; document.body.appendChild(b); }
+      b.textContent='Could not save your training in this browser ('+(e&&e.name||'storage error')+'). Use "Back up all training" now so you do not lose it.'; b.hidden=false; setTimeout(()=>{ b.hidden=true; },12000); } return false; }
+}
+function persistModel(){ saveLS(LS_MODEL,model); showModelInfo(); }
+function persistData(){ saveLS(LS_DATA,{segCounter,dataset}); }
 function showModelInfo(){
   $('btnSaveModel').disabled=!model;
   if(!model){ $('modelInfo').textContent='No model loaded'; return; }
@@ -1316,8 +1346,8 @@ function tapStartRec(label){
   $('kRecTap').classList.toggle('active',label==='tapping'); $('kRecStill').classList.toggle('active',label==='still'); $('kRecStop').disabled=false;
 }
 function tapStopRec(){ if(TAP.rec) tapPersistData(); TAP.rec=null; $('kRecTap').classList.remove('active'); $('kRecStill').classList.remove('active'); $('kRecStop').disabled=true; }
-function tapPersistData(){ try{ localStorage.setItem(LS_TAP_DATA,JSON.stringify({seg:TAP.seg,dataset:TAP.dataset})); }catch{} }
-function tapPersistModel(){ try{ localStorage.setItem(LS_TAP_MODEL,JSON.stringify(TAP.model)); }catch{} }
+function tapPersistData(){ saveLS(LS_TAP_DATA,{seg:TAP.seg,dataset:TAP.dataset}); }
+function tapPersistModel(){ saveLS(LS_TAP_MODEL,TAP.model); }
 function tapTrain(){
   const msg=$('kTrainMsg'); msg.classList.remove('err');
   const items=TAP.dataset.filter(d=>d.key===cfgKey()), nT=items.filter(d=>d.label==='tapping').length, nS=items.length-nT;
@@ -1428,7 +1458,8 @@ function flexOnWindow(F,t){
     const x=raw<=dz?0:(raw-dz)/(1-dz), tau=Math.max(0,+$('xTau').value||0), a=tau>0?1-Math.exp(-(cfg.N/2/cfg.fs)/tau):1;
     FLEX.level=FLEX.level==null?x:FLEX.level+a*(x-FLEX.level);
   } else { FLEX.ml=FLEX.rms=FLEX.level=null; }
-  FLEX.hist.push({t,ml:FLEX.ml,rms:FLEX.rms,lvl:FLEX.level,target:FLEX.cal?.target??null});
+  const XT=FLEX.test; if(XT&&XT.running&&XT.target!=null){ const ts=t-XT.stepStart; XT.log.push({t:t-XT.t0,i:XT.i,target:XT.target,ts,settle:ts<XT.settle,ml:FLEX.ml,rms:FLEX.rms}); }
+  FLEX.hist.push({t,ml:FLEX.ml,rms:FLEX.rms,lvl:FLEX.level,target:FLEX.cal?.target??FLEX.test?.target??null});
   while(FLEX.hist.length&&FLEX.hist[0].t<t-30) FLEX.hist.shift();
 }
 function flexStartRec(level,dur,skip){
@@ -1438,8 +1469,8 @@ function flexStartRec(level,dur,skip){
   return true;
 }
 function flexStopRec(){ if(FLEX.rec) flexPersistData(); FLEX.rec=null; $('xRecStop').disabled=true; $('xRec').classList.remove('active'); }
-function flexPersistData(){ try{ localStorage.setItem(LS_FLEX_DATA,JSON.stringify({seg:FLEX.seg,dataset:FLEX.dataset})); }catch{} }
-function flexPersistModel(){ try{ localStorage.setItem(LS_FLEX_MODEL,JSON.stringify(FLEX.model)); }catch{} }
+function flexPersistData(){ saveLS(LS_FLEX_DATA,{seg:FLEX.seg,dataset:FLEX.dataset}); }
+function flexPersistModel(){ saveLS(LS_FLEX_MODEL,FLEX.model); }
 const pctTxt=v=>Math.round(v*100)+'%';
 const FLEX_SAY={0:'Relax',0.25:'Flex at 25 percent',0.5:'Flex at half effort',0.75:'Flex at 75 percent',1:'Maximum flex'};
 function flexCalStart(){
@@ -1505,10 +1536,83 @@ function flexRestore(){
   try{ const d=JSON.parse(localStorage.getItem(LS_FLEX_DATA)||'null'); if(d&&Array.isArray(d.dataset)){ FLEX.dataset=d.dataset; FLEX.seg=d.seg||0; } }catch{}
   try{ const m=JSON.parse(localStorage.getItem(LS_FLEX_MODEL)||'null'); if(m&&m.cfg&&Array.isArray(m.w)&&m.curve){ m.key=keyOf(m.cfg); FLEX.model=m; } }catch{}
   flexShowInfo(); if(FLEX.model) flexFitTable(FLEX.dataset.filter(d=>d.key===cfgKey()));
+  flexTestRestore();
 }
+
+/* ---------- Flex live test: does the model really follow your effort? ---------- */
+const LS_FLEX_TEST='emgPosture.flexTestLast';
+function flexTestStart(){
+  if(!port&&!demoTimer){ alert('Connect the ESP32 or start the demo signal first.'); return; }
+  if(!FLEX.model||FLEX.model.key!==cfgKey()){ alert('Train the flex model first (steps 1 and 2), with the same signal settings.'); return; }
+  if(FLEX.cal) flexCalStop(false); if(recording) stopRecording(); if(TAP.rec) tapStopRec(); flexStopRec();
+  const dur=Math.max(4,+$('xtDur').value||8), settle=Math.min(dur-1,Math.max(0,+$('xtSettle').value||0)), rounds=Math.min(4,Math.max(1,+$('xtRounds').value|0));
+  const plan=[]; let last=-1;
+  for(let r=0;r<rounds;r++){ const a=[...FLEX_LEVELS]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } if(a[0]===last) a.push(a.shift()); plan.push(...a); last=a[a.length-1]; } // shuffled, never the same level twice in a row
+  const now=performance.now()/1000;
+  FLEX.test={running:true,plan,i:-1,dur,settle,lead:3,t0:now,target:null,stepStart:now,log:[],voice:$('xtVoice').checked,rule:null};
+  $('xtStart').disabled=true; $('xtStop').disabled=false; $('xtExport').disabled=true; $('xtResults').innerHTML='<span class="small">Test running…</span>'; $('xtLevels').innerHTML=''; $('xtVerdict').textContent='';
+  say(FLEX.test.voice,'Get ready. Relax your muscle.');
+}
+function flexTestTick(){
+  const X=FLEX.test; if(!X||!X.running) return;
+  const now=performance.now()/1000, el=now-X.t0-X.lead; if(el<0) return;
+  const i=Math.floor(el/X.dur); if(i>=X.plan.length){ flexTestStop(false); return; }
+  if(i!==X.i){ X.i=i; X.target=X.plan[i]; X.stepStart=X.t0+X.lead+i*X.dur; beep(); say(X.voice,FLEX_SAY[X.target]); if(demoTimer){ $('demoFlex').value=Math.round(X.target*100); setDemoState('flex'); } }
+}
+function flexTestStop(stopped){
+  const X=FLEX.test; if(!X||!X.running) return; X.running=false; try{ speechSynthesis.cancel(); }catch{}
+  $('xtStart').disabled=false; $('xtStop').disabled=true; $('xtExport').disabled=!X.log.length;
+  $('xCue').textContent=stopped?'Stopped':'Done'; $('xCueSub').textContent=stopped?'Partial results below':'Results below'; $('xTarget').style.display='none';
+  if(!stopped) say(X.voice,'Test complete.');
+  flexTestRender(true);
+}
+function flexTestMetrics(key){
+  const X=FLEX.test, rows=X.log.filter(r=>!r.settle&&r[key]!=null); if(rows.length<5) return null;
+  const e=rows.map(r=>r[key]-r.target), n=rows.length, mae=avg(e.map(Math.abs)), rmse=Math.sqrt(avg(e.map(v=>v*v))), bias=avg(e);
+  const within=rows.filter(r=>Math.abs(r[key]-r.target)<=0.1).length/n;
+  const ym=avg(rows.map(r=>r.target)), pm=avg(rows.map(r=>r[key]));
+  let sxy=0,sxx=0,syy=0; for(const r of rows){ sxy+=(r.target-ym)*(r[key]-pm); sxx+=(r.target-ym)**2; syy+=(r[key]-pm)**2; }
+  const corr=sxx>0&&syy>0?sxy/Math.sqrt(sxx*syy):null;
+  const lat=[]; let miss=0, trans=0;
+  for(let i=1;i<X.plan.length;i++){ const all=X.log.filter(r=>r.i===i&&r[key]!=null); if(all.length<3) continue; trans++;
+    let f=null; for(let k=0;k+1<all.length;k++) if(Math.abs(all[k][key]-all[k].target)<=0.1&&Math.abs(all[k+1][key]-all[k].target)<=0.1){ f=all[k].ts; break; }
+    if(f==null) miss++; else lat.push(f); }
+  return {n,mae,rmse,bias,within,corr,lat:avg(lat),miss,trans};
+}
+function flexTestRender(save){
+  const X=FLEX.test; if(!X||!X.log.length){ $('xtResults').innerHTML='<span class="small">Not enough data. Run the test again.</span>'; return; }
+  const f=flexTestMetrics('rms'), m=flexTestMetrics('ml'); if(!f&&!m){ $('xtResults').innerHTML='<span class="small">Not enough scored windows. Run the test longer.</span>'; return; }
+  const P=v=>v==null?'–':(v*100).toFixed(1), pc=v=>v==null?'–':(v*100).toFixed(0)+'%', sec=v=>v==null||isNaN(v)?'–':v.toFixed(2)+' s', num=v=>v==null?'–':v.toFixed(2);
+  const rows=[['Average error (points of 100)',P(f?.mae),P(m?.mae),f?.mae,m?.mae,-1],['Typical error, big misses weigh more (RMSE)',P(f?.rmse),P(m?.rmse),f?.rmse,m?.rmse,-1],
+    ['Readings within ±10 points',pc(f?.within),pc(m?.within),f?.within,m?.within,1],['Correlation with the target (1 = perfect)',num(f?.corr),num(m?.corr),f?.corr,m?.corr,1],
+    ['Average bias (+ reads too high)',f?(f.bias*100>=0?'+':'')+P(f.bias):'–',m?(m.bias*100>=0?'+':'')+P(m.bias):'–',f?Math.abs(f.bias):null,m?Math.abs(m.bias):null,-1],
+    ['Average time to reach the new level',sec(f?.lat),sec(m?.lat),f?.lat,m?.lat,-1],['Level changes never reached',f?`${f.miss} / ${f.trans}`:'–',m?`${m.miss} / ${m.trans}`:'–',f?.miss,m?.miss,-1],['Scored windows',f?.n??'–',m?.n??'–',null,null,0]];
+  let h='<table><tr><th style="text-align:left">Metric</th><th>RMS curve</th><th>ML (ridge)</th></tr>';
+  for(const [name,a,b,va,vb,dir] of rows){ let wa='',wb=''; if(dir&&va!=null&&vb!=null&&va!==vb){ if(dir>0?va>vb:va<vb) wa=' class="win"'; else wb=' class="win"'; } h+=`<tr><td style="text-align:left">${name}</td><td${wa}>${a}</td><td${wb}>${b}</td></tr>`; }
+  $('xtResults').innerHTML=h+'</table>';
+  const by={}; for(const r of X.log.filter(r=>!r.settle)) (by[r.target]??=[]).push(r);
+  const sdv=a=>{ const mu=avg(a); return Math.sqrt(avg(a.map(v=>(v-mu)**2))); };
+  let lh='<table><tr><th style="text-align:left">Asked for</th><th>Windows</th><th>RMS curve (mean ± sd)</th><th>ML (mean ± sd)</th></tr>';
+  for(const l of Object.keys(by).map(Number).sort((a,b)=>a-b)){ const a=by[l], pr=a.filter(r=>r.rms!=null).map(r=>r.rms*100), pm=a.filter(r=>r.ml!=null).map(r=>r.ml*100);
+    lh+=`<tr><td style="text-align:left">${pctTxt(l)}</td><td>${a.length}</td><td>${pr.length?avg(pr).toFixed(0)+' ± '+sdv(pr).toFixed(0):'–'}</td><td>${pm.length?avg(pm).toFixed(0)+' ± '+sdv(pm).toFixed(0):'–'}</td></tr>`; }
+  $('xtLevels').innerHTML=lh+'</table>';
+  const guess=avg(X.log.filter(r=>!r.settle).map(r=>Math.abs(r.target-0.5)))*100, a=m||f, name=m?'The ML model':'The RMS curve', mae=a.mae*100;
+  let v; if(mae<=10&&(a.corr==null||a.corr>=0.9)) v=`${name} is working well: it was off by ${mae.toFixed(1)} points on average on levels it was never trained in this order (guessing 50% every time would be off by ${guess.toFixed(0)}).`;
+  else if(mae<=18) v=`${name} works but is noisy: off by ${mae.toFixed(1)} points on average (guessing would be off by ${guess.toFixed(0)}). Record more takes at every level, with steady holds, and retrain.`;
+  else v=`${name} is not tracking your effort well (off by ${mae.toFixed(1)} points, guessing would be off by ${guess.toFixed(0)}). Check the electrodes, then recalibrate and retrain.`;
+  if(f&&m){ const d=(f.mae-m.mae)*100; if(Math.abs(d)<1.5) v+='\nThe two methods were about equally accurate.'; else v+=`\n${d>0?'ML':'The RMS curve'} was more accurate by ${Math.abs(d).toFixed(1)} points.`; if(m.corr!=null&&m.corr<0.7) v+='\nA low correlation means the reading barely follows the target; it is usually the signal, not the model.'; }
+  if(f&&f.n<40) v+='\nThis was a short test. Run more rounds before drawing a conclusion.';
+  $('xtVerdict').textContent=v; $('xtWhen').textContent='· '+new Date().toLocaleString();
+  if(save) saveLS(LS_FLEX_TEST,{at:Date.now(),res:$('xtResults').innerHTML,lv:$('xtLevels').innerHTML,verdict:v});
+}
+function flexTestExport(){ const X=FLEX.test; if(!X||!X.log.length) return;
+  const lines=['# flex live test; transition_s='+X.settle,'time_s,step,target,in_transition,rms_curve,ml']; for(const r of X.log) lines.push([r.t.toFixed(3),r.i,r.target,r.settle?1:0,r.rms==null?'':r.rms.toFixed(4),r.ml==null?'':r.ml.toFixed(4)].join(','));
+  download(lines.join('\n'),'text/csv',`emg_flex_live_test_${stamp()}.csv`); }
+function flexTestRestore(){ try{ const d=JSON.parse(localStorage.getItem(LS_FLEX_TEST)||'null'); if(d&&d.res){ $('xtResults').innerHTML=d.res; $('xtLevels').innerHTML=d.lv||''; $('xtVerdict').textContent=d.verdict||''; $('xtWhen').textContent='· last run '+new Date(d.at).toLocaleString(); } }catch{} }
+$('xtStart').onclick=flexTestStart; $('xtStop').onclick=()=>flexTestStop(true); $('xtExport').onclick=flexTestExport;
 function flexReady(){ return !!(FLEX.model&&FLEX.model.key===cfgKey()&&(port||demoTimer)&&FLEX.level!=null); }
 function updateFlexUI(){
-  flexCalTick();
+  flexCalTick(); flexTestTick();
   const hopS=cfg.N/2/cfg.fs, c={}, segs={};
   for(const d of FLEX.dataset){ c[d.level]=(c[d.level]||0)+1; (segs[d.level]??=new Set()).add(d.seg); }
   $('xCounts').textContent=FLEX_LEVELS.map(l=>`${pctTxt(l)}: ${c[l]||0} windows · ${segs[l]?.size||0} takes · ~${((c[l]||0)*hopS).toFixed(0)} s`).join('\n');
@@ -1517,7 +1621,15 @@ function updateFlexUI(){
   if(FLEX.rec&&!C){ const el=now-FLEX.rec.start; $('xRecInfo').textContent=el<FLEX.rec.skip?`Get ready… ${(FLEX.rec.skip-el).toFixed(1)} s`:`Recording ${pctTxt(FLEX.rec.level)} (take ${FLEX.rec.seg}) — ${(el-FLEX.rec.skip).toFixed(1)} / ${FLEX.rec.dur} s`; }
   else if(!C) $('xRecInfo').textContent='Not recording';
   const tgt=$('xTarget');
-  if(C){
+  const XT=FLEX.test;
+  if(XT&&XT.running&&!C){
+    const el=now-XT.t0-XT.lead;
+    if(el<0){ $('xCue').textContent='Relax'; $('xCueSub').textContent=`Test starting in ${Math.ceil(-el)} s`; tgt.style.display='none'; }
+    else { const left=XT.dur-(el-XT.i*XT.dur);
+      $('xCue').textContent=XT.target===0?'RELAX':`FLEX ${pctTxt(XT.target)}`;
+      $('xCueSub').textContent=`Test step ${XT.i+1} of ${XT.plan.length} · ${left.toFixed(1)} s left`+(el-XT.i*XT.dur<XT.settle?' · transition, not scored':' · scored');
+      tgt.style.display='block'; tgt.style.left=(XT.target*100)+'%'; $('xRecInfo').textContent=`Live test: step ${XT.i+1} of ${XT.plan.length}`; }
+  } else if(C){
     const el=now-C.t0-C.lead;
     if(el<0){ $('xCue').textContent='Relax'; $('xCueSub').textContent=`Starting in ${Math.ceil(-el)} s`; tgt.style.display='none'; }
     else { const left=C.dur-(el-C.i*C.dur);
@@ -1912,9 +2024,26 @@ $('xModelIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; 
     m.key=keyOf(m.cfg); FLEX.model=m; FLEX.level=null; flexPersistModel(); flexShowInfo(); flexFitTable(FLEX.dataset.filter(d=>d.key===cfgKey())); $('xTrainMsg').classList.remove('err'); $('xTrainMsg').textContent='Flex model loaded.'; }
   catch(err){ $('xTrainMsg').textContent='Could not load: '+err.message; $('xTrainMsg').classList.add('err'); } };
 
+/* ---- settings that belong to the training (processing config, smoothing, calibration lengths...) are remembered too ---- */
+const SET_IDS=['baud','fs','mid','lo','hi','notch','N','recDur','recSkip','smooth','fftFeat','tRounds','tDur','tSettle','tFirst','tVoice','alFall','alFallWin','alConfirm','alInactive','alVoice','kRecDur','kRecSkip','kSmooth','kMethod','kRounds','kDur','kSettle','kFirst','kVoice','xDur','xSettle','xRounds','xVoice','xLevel','xRecDur','xMethod','xTau','xDead'];
+const LS_SET='emgPosture.settings';
+function saveSettings(){ const o={}; for(const id of SET_IDS){ const e=$(id); if(e) o[id]=e.type==='checkbox'?e.checked:e.value; } saveLS(LS_SET,o); }
+function loadSettings(){ try{ const o=JSON.parse(localStorage.getItem(LS_SET)||'null'); if(!o) return; for(const id of SET_IDS){ const e=$(id); if(!e||!(id in o)) continue; if(e.type==='checkbox') e.checked=!!o[id]; else if(e.tagName!=='SELECT'||[...e.options].some(op=>op.value===String(o[id]))) e.value=o[id]; } }catch{} }
+loadSettings();
+for(const id of SET_IDS){ const e=$(id); if(e) e.addEventListener('change',saveSettings); }
 applyConfig();
+loadSettings();   // the FFT-rule feature list is filled by applyConfig, so restore that one again
 restoreFromStorage();
 shPrefs(); tapRestore(); flexRestore();
+/* auto-save while a take is being recorded, and when the tab is hidden or closed, so no recording is lost */
+setInterval(()=>{ if(recording) persistData(); if(TAP.rec) tapPersistData(); if(FLEX.rec) flexPersistData(); },4000);
+const flushAll=()=>{ if(dataset.length) persistData(); if(model) saveLS(LS_MODEL,model); if(TAP.dataset.length) tapPersistData(); if(TAP.model) tapPersistModel(); if(FLEX.dataset.length) flexPersistData(); if(FLEX.model) flexPersistModel(); saveSettings(); };
+addEventListener('beforeunload',flushAll); document.addEventListener('visibilitychange',()=>{ if(document.hidden) flushAll(); });
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch{}   // ask the browser not to evict this data
+$('btnBackup').onclick=()=>{ const o={_type:'emg-posture-backup',_at:new Date().toISOString()}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('emgPosture.')) o[k]=localStorage.getItem(k); }
+  download(JSON.stringify(o),'application/json',`emg_backup_${stamp()}.json`); $('saveStamp').textContent='Backup downloaded ('+(Object.keys(o).length-2)+' items).'; };
+$('btnRestoreAll').onclick=()=>$('restoreIn').click();
+$('restoreIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; try{ const o=JSON.parse(await f.text()); if(o._type!=='emg-posture-backup') throw new Error('Not an EMG backup file.'); let n=0; for(const k of Object.keys(o)) if(k.startsWith('emgPosture.')&&typeof o[k]==='string'){ localStorage.setItem(k,o[k]); n++; } alert('Restored '+n+' saved items. The page will reload.'); location.reload(); }catch(err){ alert('Could not restore: '+err.message); } };
 try{ showTab(localStorage.getItem('emgPosture.tab')||'tabTrain'); }catch{ showTab('tabTrain'); }
 window.EMG={loadMqtt,randCode,css,broker:()=>$('shBroker').value.trim(),name:()=>$('shName').value.trim(),
   tapReady:()=>!!(TAP.model&&TAP.model.key===cfgKey()&&(port||demoTimer)),activeTab:()=>activeTab,
